@@ -1,0 +1,223 @@
+<!-- src/app/components/conversation-settings-modal/conversation-settings-modal.html -->
+<div class="modal-overlay" (click)="onClose()">
+    <div class="modal-container modal-settings" (click)="$event.stopPropagation()">
+
+        <!-- Header -->
+        <div class="modal-header">
+            <h2>Configuración de Conversación</h2>
+            <button class="btn-icon" (click)="onClose()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-nav">
+            <button class="tab-btn" [class.active]="activeTab === 'general'" (click)="setActiveTab('general')">
+                General
+            </button>
+            <button class="tab-btn" [class.active]="activeTab === 'memory'" (click)="setActiveTab('memory')">
+                Memoria
+            </button>
+            <button class="tab-btn" [class.active]="activeTab === 'rag'" (click)="setActiveTab('rag')">
+                RAG
+            </button>
+            <button class="tab-btn" [class.active]="activeTab === 'advanced'" (click)="setActiveTab('advanced')">
+                Avanzado
+            </button>
+        </div>
+
+        <!-- Form -->
+        <form [formGroup]="settingsForm" (ngSubmit)="onSubmit()">
+            <div class="modal-body">
+
+                <!-- General Tab -->
+                <div *ngIf="activeTab === 'general'" class="tab-content">
+                    <!-- Título - Full Width -->
+                    <div class="form-group form-group-full">
+                        <label for="title">Título</label>
+                        <input type="text" id="title" formControlName="title" class="form-input">
+                    </div>
+
+                    <div class="form-divider"></div>
+
+                    <!-- Full Model Settings using Shared Component -->
+                    <app-ai-model-selector [parentForm]="settingsForm" providerControlName="provider"
+                        modelControlName="model">
+                    </app-ai-model-selector>
+
+
+                    <div class="form-group">
+                        <div class="toggle-field">
+                            <label class="toggle-label">
+                                <input type="checkbox" formControlName="synchronousChat">
+                                <span>Chat Síncrono</span>
+                            </label>
+                            <small>Si se desmarca, el chat funcionará en modo streaming (respuesta en tiempo
+                                real)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Tab -->
+                <div *ngIf="activeTab === 'memory'" class="tab-content">
+                    <div class="form-group">
+                        <label>
+                            <i class="icon-brain"></i>
+                            Configuración de Memoria
+                        </label>
+                        <div class="toggle-field">
+                            <label class="toggle-label">
+                                <input type="checkbox" formControlName="semanticMemoryEnabled">
+                                <span>Habilitar Memoria Semántica</span>
+                            </label>
+                            <small>Busca en el historial de conversaciones anteriores</small>
+                        </div>
+                        <div *ngIf="settingsForm.get('semanticMemoryEnabled')?.value" class="memory-settings">
+                            <div class="form-field">
+                                <label for="memorySearchK">
+                                    Resultados de Búsqueda: {{ settingsForm.get('memorySearchK')?.value }}
+                                </label>
+                                <input type="range" id="memorySearchK" formControlName="memorySearchK" min="1" max="20"
+                                    step="1" class="slider">
+                                <small>Cantidad de mensajes previos a recuperar (1-20)</small>
+                            </div>
+                            <div class="form-field">
+                                <label for="memoryScoreThreshold">
+                                    Umbral de Confianza: {{ settingsForm.get('memoryScoreThreshold')?.value }}
+                                </label>
+                                <input type="range" id="memoryScoreThreshold" formControlName="memoryScoreThreshold"
+                                    min="0" max="1" step="0.1" class="slider">
+                                <small>Mínima similitud semántica requerida (0-1)</small>
+                            </div>
+                            <div class="toggle-field">
+                                <label class="toggle-label">
+                                    <input type="checkbox" formControlName="memoryAutoIndex">
+                                    <span>Indexación Automática</span>
+                                </label>
+                                <small>Indexa mensajes automáticamente para futuras búsquedas</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-divider"></div>
+
+                    <!-- Max History Messages -->
+                    <div class="form-group">
+                        <label>
+                            <i class="icon-clock"></i>
+                            Historial de Mensajes
+                        </label>
+                        <div class="form-field">
+                            <label for="maxHistoryMessages">
+                                Máximo de Mensajes: {{ settingsForm.get('maxHistoryMessages')?.value }}
+                            </label>
+                            <input type="range" id="maxHistoryMessages" formControlName="maxHistoryMessages" min="1"
+                                max="100" step="1" class="slider">
+                            <small>Cantidad máxima de mensajes del historial a incluir en el contexto (1-100)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RAG Tab -->
+                <div *ngIf="activeTab === 'rag'" class="tab-content">
+                    <div class="form-group" *ngIf="settingsForm.get('ragK')">
+                        <label>
+                            <i class="icon-search"></i>
+                            Configuración RAG
+                        </label>
+                        <div class="rag-grid">
+                            <div class="form-field">
+                                <label>Resultados (K): {{ settingsForm.get('ragK')?.value }}</label>
+                                <input type="range" formControlName="ragK" min="1" max="20" step="1" class="slider">
+                            </div>
+                            <div class="form-field">
+                                <label>Umbral: {{ settingsForm.get('ragScoreThreshold')?.value }}</label>
+                                <input type="range" formControlName="ragScoreThreshold" min="0" max="1" step="0.05"
+                                    class="slider">
+                            </div>
+                            <div class="form-field">
+                                <label>Modo</label>
+                                <select formControlName="ragSearchMode" class="form-select">
+                                    <option value="semantic">Semántico</option>
+                                    <option value="lexical">Léxico</option>
+                                    <option value="hybrid">Híbrido</option>
+                                </select>
+                            </div>
+                            <div class="form-field checkbox-field">
+                                <label>
+                                    <input type="checkbox" formControlName="ragEnableRerank">
+                                    Re-ranking
+                                </label>
+                            </div>
+                            <div class="form-field checkbox-field">
+                                <label>
+                                    <input type="checkbox" formControlName="ragEnableParentRetrieval">
+                                    Parent Retrieval
+                                </label>
+                            </div>
+                            <div class="form-field" *ngIf="settingsForm.get('ragEnableParentRetrieval')?.value">
+                                <label>Modo Parent</label>
+                                <select formControlName="ragParentMode" class="form-select">
+                                    <option value="full_parent">Completo</option>
+                                    <option value="windowed">Ventana</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Tab -->
+                <div *ngIf="activeTab === 'advanced'" class="tab-content">
+                    <div class="form-group">
+                        <label>
+                            <i class="icon-settings"></i>
+                            Opciones Avanzadas (Ollama)
+                        </label>
+                        <div class="rag-grid">
+                            <div class="form-field">
+                                <label>Contexto (num_ctx): {{ settingsForm.get('numCtx')?.value }}</label>
+                                <input type="number" formControlName="numCtx" min="1024" max="128000" step="1024"
+                                    class="form-input">
+                                <small>Tamaño de ventana de contexto (tokens)</small>
+                            </div>
+                            <div class="form-field">
+                                <label>GPU Layers (num_gpu)</label>
+                                <input type="number" formControlName="numGpu" min="0" max="999" class="form-input">
+                                <small>Capas a descargar a la GPU</small>
+                            </div>
+                            <div class="form-field">
+                                <label>Threads (num_thread)</label>
+                                <input type="number" formControlName="numThread" min="1" max="64" class="form-input">
+                                <small>Hilos de CPU para procesamiento</small>
+                            </div>
+                            <div class="form-field">
+                                <label>Batch Size (num_batch)</label>
+                                <input type="number" formControlName="numBatch" min="1" max="4096" class="form-input">
+                                <small>Tamaño del lote para procesamiento</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box - Full Width (Always Visible) -->
+                <div class="info-box-sm" style="margin-top: 20px;">
+                    <i class="icon-info"></i>
+                    <p>Los cambios se aplicarán a partir del siguiente mensaje. Los mensajes anteriores mantienen su
+                        configuración original.</p>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" (click)="onClose()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" [disabled]="!settingsForm.valid">
+                    <i class="icon-check"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

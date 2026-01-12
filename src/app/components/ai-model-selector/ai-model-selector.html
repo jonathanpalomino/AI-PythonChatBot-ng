@@ -1,0 +1,157 @@
+<div [formGroup]="parentForm" class="model-settings-container">
+
+    <div class="settings-grid-4-cols">
+
+        <!-- Column 1: Provider & Model -->
+        <div class="settings-col">
+            <div class="form-section">
+                <label class="section-label">Proveedor de IA</label>
+                <div class="provider-grid-compact">
+                    <label *ngFor="let provider of providers" class="provider-card-compact"
+                        [class.selected]="parentForm.get(providerControlName)?.value === provider.value"
+                        [class.disabled]="!provider.isAvailable">
+                        <input type="radio" [formControlName]="providerControlName" [value]="provider.value"
+                            [disabled]="!provider.isAvailable" style="display: none;">
+                        <span class="provider-icon-sm">{{ provider.icon }}</span>
+                        <span class="provider-label-sm">{{ provider.label }}</span>
+                    </label>
+                </div>
+
+                <!-- Cost Filter -->
+                <div class="filter-group mt-2" style="display: flex; gap: 0.5rem; justify-content: center;">
+                    <button type="button" class="btn-xs" [class.active]="costFilter === 'all'"
+                        (click)="setCostFilter('all')">
+                        Todo
+                    </button>
+                    <button type="button" class="btn-xs" [class.active]="costFilter === 'free'"
+                        (click)="setCostFilter('free')">
+                        🆓 Gratis
+                    </button>
+                    <button type="button" class="btn-xs" [class.active]="costFilter === 'paid'"
+                        (click)="setCostFilter('paid')">
+                        💰 Pago
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-section mt-2">
+                <label [for]="modelControlName" class="section-label">Modelo</label>
+                <select [id]="modelControlName" [formControlName]="modelControlName" class="form-select">
+                    <option value="" disabled>Selecciona un modelo</option>
+                    <option *ngFor="let model of getAvailableModels()" [value]="model.name"
+                        [disabled]="!model.is_active">
+                        {{ model.name }}
+                        <span *ngIf="!model.is_active"> (Inactivo)</span>
+                    </option>
+                </select>
+
+                <!-- Model capability badges -->
+                <div class="model-badges mt-1" *ngIf="getSelectedModel()">
+                    <div class="capability-badges">
+                        <span class="badge badge-primary" *ngIf="getSelectedModel()?.supports_thinking"
+                            title="Soporta pensamiento/razonamiento">
+                            🧠 Thinking
+                        </span>
+                        <span class="badge badge-secondary" *ngIf="getSelectedModel()?.supports_function_calling"
+                            title="Soporta herramientas">
+                            🔧 Tools
+                        </span>
+                        <span class="badge badge-accent" *ngIf="getSelectedModel()?.is_custom"
+                            title="Modelo personalizado">
+                            ⭐ Custom
+                        </span>
+                        <span class="badge badge-warning" *ngIf="isPaidModel(getSelectedModel()!)"
+                            title="Modelo de pago">
+                            💰 Paid
+                        </span>
+                        <span class="badge badge-success" *ngIf="!isPaidModel(getSelectedModel()!)"
+                            title="Modelo gratuito">
+                            🆓 Free
+                        </span>
+                        <span class="badge badge-outline" *ngIf="getSelectedModel()?.model_type">
+                            {{ getSelectedModel()?.model_type }}
+                        </span>
+                    </div>
+
+                    <!-- Provider attribute badges -->
+                    <div class="provider-attribute-badges mt-1">
+                        <span *ngFor="let attr of getSelectedModelAttributes()" class="badge badge-outline"
+                            [class.badge-success]="attr.value" [class.badge-error]="!attr.value" [title]="attr.label">
+                            {{ attr.icon }} {{ attr.label }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 2: Max Tokens & Hallucination -->
+        <div class="settings-col">
+            <div class="form-section">
+                <label for="maxTokens" class="section-label">Max Tokens</label>
+                <input type="number" id="maxTokens" formControlName="maxTokens" placeholder="2000" class="form-input">
+            </div>
+
+            <div class="form-section mt-2">
+                <label class="section-label">Control de Alucinaciones</label>
+                <div class="hallucination-list-vertical">
+                    <label *ngFor="let mode of hallucinationModes" class="hallucination-card-compact"
+                        [class.selected]="parentForm.get('hallucinationMode')?.value === mode.value">
+                        <input type="radio" formControlName="hallucinationMode" [value]="mode.value"
+                            style="display: none;">
+                        <div class="mode-content">
+                            <span class="mode-icon">{{ mode.icon }}</span>
+                            <div class="mode-text">
+                                <span class="mode-label">{{ mode.label }}</span>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Require Sources -->
+                <div class="mt-1"
+                    *ngIf="parentForm.get('hallucinationMode')?.value === 'strict' && parentForm.contains('requireSources')">
+                    <label class="checkbox-label">
+                        <input type="checkbox" formControlName="requireSources">
+                        <span>Requerir fuentes</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 3: Creativity (Temperature) -->
+        <div class="settings-col settings-col-narrow">
+            <div class="form-section h-100">
+                <label for="temperature" class="section-label">
+                    Creatividad: {{ parentForm.get('temperature')?.value?.toFixed(1) }}
+                    <span class="temperature-label">
+                        ({{ getTemperatureLabel(parentForm.get('temperature')?.value) }})
+                    </span>
+                </label>
+                <div class="slider-vertical-container">
+                    <div class="slider-labels-vertical">
+                        <span>Creativo</span>
+                        <span>Balanceado</span>
+                        <span>Preciso</span>
+                    </div>
+                    <input type="range" id="temperature" formControlName="temperature" min="0" max="2" step="0.1"
+                        class="slider-vertical" orient="vertical">
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 4: Embedding Model -->
+        <div class="settings-col settings-col-narrow">
+            <div class="form-section h-100">
+                <label for="embeddingModel" class="section-label">Embedding</label>
+                <select id="embeddingModel" formControlName="embeddingModel" class="form-select">
+                    <option [ngValue]="null">Por defecto</option>
+                    <option *ngFor="let em of embeddingModels" [value]="em.name">
+                        {{ em.name }} ({{ em.provider }})
+                    </option>
+                </select>
+            </div>
+        </div>
+    
+    </div>
+
+</div>

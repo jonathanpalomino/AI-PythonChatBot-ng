@@ -1,0 +1,496 @@
+// src/app/components/conversation-settings-modal/conversation-settings-modal.scss
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    background: var(--bg-primary);
+    border-radius: 1rem;
+    width: 95%;
+    max-width: 1100px;
+    max-height: 90vh;
+    min-height: 550px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+    overflow: hidden;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+
+    h2 {
+        flex: 1;
+        margin: 0;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.75rem;
+    min-height: 350px;
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+
+        &:hover {
+            background: var(--text-tertiary);
+        }
+    }
+}
+
+.tabs-nav {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    padding: 0 0.75rem;
+    gap: 0.75rem;
+    flex-shrink: 0;
+
+    .tab-btn {
+        padding: 0.5rem 0.375rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            color: var(--text-primary);
+        }
+
+        &.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+    }
+}
+
+.tab-content {
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    margin-bottom: 0.75rem;
+
+    label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.8rem;
+    }
+
+    .temperature-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+    }
+}
+
+.form-group-full {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.form-group-compact {
+    margin-bottom: 0.5rem;
+    
+    label {
+        font-size: 0.75rem;
+    }
+    
+    .form-select {
+        padding: 0.25rem 0.375rem;
+        font-size: 0.75rem;
+    }
+    
+    small {
+        font-size: 0.7rem;
+        margin-top: 0.125rem;
+    }
+}
+
+.form-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 1rem 0;
+}
+
+// Layout de dos columnas
+.settings-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 0.875rem;
+}
+
+.settings-column-left,
+.settings-column-right {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+
+    &:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+}
+
+// Provider Grid Compact
+.provider-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+    gap: 0.5rem;
+}
+
+.provider-card-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.5rem 0.375rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    .provider-icon-sm {
+        font-size: 1.25rem;
+    }
+
+    .provider-label-sm {
+        font-size: 0.65rem;
+        font-weight: 500;
+        text-align: center;
+        line-height: 1.1;
+    }
+
+    &:hover {
+        border-color: var(--primary-color);
+        background: var(--bg-secondary);
+    }
+
+    &.selected {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+
+        .provider-label-sm {
+            color: white;
+        }
+    }
+}
+
+// Slider
+.slider {
+    width: 100%;
+    height: 5px;
+    border-radius: 2.5px;
+    background: var(--bg-tertiary);
+    outline: none;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+    }
+
+    &::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        cursor: pointer;
+        border: none;
+
+        &:hover {
+            transform: scale(1.15);
+        }
+    }
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.3rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+}
+
+// Hallucination Compact
+.hallucination-compact {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Una sola columna en la columna derecha */
+    gap: 0.5rem;
+}
+
+.hallucination-option {
+    display: flex;
+    flex-direction: row;
+    /* Cambiado a row para layout horizontal */
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    .mode-icon-sm {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .mode-label-sm {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-align: left;
+    }
+
+    &:hover {
+        border-color: var(--primary-color);
+        background: var(--bg-secondary);
+    }
+
+    &.selected {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+
+        .mode-label-sm {
+            color: white;
+        }
+    }
+}
+
+// Memory Settings
+.memory-settings {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.toggle-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+
+        input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        span {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+    }
+
+    small {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-left: 1.5rem;
+    }
+}
+
+.form-field {
+    margin-bottom: 0.875rem;
+
+    label {
+        display: block;
+        margin-bottom: 0.375rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+    }
+
+    small {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    &.checkbox-field {
+        label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+
+            input[type="checkbox"] {
+                width: auto;
+                cursor: pointer;
+            }
+        }
+    }
+}
+
+// RAG Grid
+.rag-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+// Info Box Small
+.info-box-sm {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.625rem;
+    background: rgba(6, 182, 212, 0.1);
+    border-left: 3px solid var(--info-color);
+    border-radius: 0.5rem;
+    margin-top: 0.75rem;
+
+    i {
+        font-size: 0.9rem;
+        color: var(--info-color);
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+    }
+
+    p {
+        margin: 0;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        line-height: 1.35;
+    }
+}
+
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+
+    button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+}
+
+// Responsive
+@media (max-width: 768px) {
+    .modal-container {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    // Volver a una columna en móviles
+    .settings-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .provider-grid-compact {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    // Volver al diseño de 3 columnas en móviles
+    .hallucination-compact {
+        grid-template-columns: 1fr;
+    }
+
+    .rag-grid {
+        grid-template-columns: 1fr;
+    }
+}

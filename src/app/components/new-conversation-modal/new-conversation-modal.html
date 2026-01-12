@@ -1,0 +1,277 @@
+<!-- src/app/components/new-conversation-modal/new-conversation-modal.html -->
+<div class="modal-overlay" (click)="onOverlayClick($event)">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+
+        <!-- Header -->
+        <div class="modal-header">
+            <h2>Nueva Conversación</h2>
+            <button class="btn-icon" (click)="onClose()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="modal-steps">
+            <div class="step" [class.active]="currentStep === 1" [class.completed]="currentStep > 1">
+                <div class="step-number">1</div>
+                <div class="step-label">Básico</div>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step" [class.active]="currentStep === 2" [class.completed]="currentStep > 2">
+                <div class="step-number">2</div>
+                <div class="step-label">Modelo</div>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step" [class.active]="currentStep === 3">
+                <div class="step-number">3</div>
+                <div class="step-label">Herramientas</div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form [formGroup]="conversationForm" (ngSubmit)="onSubmit()">
+            <div class="modal-body">
+
+                <!-- Step 1: Basic Settings -->
+                <div class="step-content" *ngIf="currentStep === 1">
+                    <div class="form-group">
+                        <label for="title">Título de la Conversación</label>
+                        <input type="text" id="title" formControlName="title"
+                            placeholder="Ej: Análisis de código Python" class="form-input">
+                        <div class="form-error"
+                            *ngIf="conversationForm.get('title')?.invalid && conversationForm.get('title')?.touched">
+                            El título es requerido
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="project">Proyecto (Opcional)</label>
+                        <select id="project" formControlName="projectId" class="form-select">
+                            <option value="">Sin proyecto asociado</option>
+                            <option *ngFor="let proj of projects" [value]="proj.id">
+                                {{ proj.name }}
+                            </option>
+                        </select>
+                        <small class="form-hint" *ngIf="conversationForm.get('projectId')?.value">
+                            La conversación compartirá archivos y contexto con este proyecto.
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="promptTemplate">Plantilla de Prompt (Opcional)</label>
+                        <select id="promptTemplate" formControlName="promptTemplateId" class="form-select">
+                            <option value="">Sin plantilla - Configuración personalizada</option>
+                            <optgroup *ngFor="let category of getPromptCategories()" [label]="category">
+                                <option *ngFor="let prompt of getPromptsByCategory(category)" [value]="prompt.id">
+                                    {{ prompt.name }} - {{ prompt.description }}
+                                </option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div class="info-box">
+                        <i class="icon-info"></i>
+                        <div>
+                            <strong>💡 Tip:</strong> Las plantillas de prompt configuran automáticamente el modelo y
+                            herramientas recomendadas.
+                            Puedes modificar estos valores en los siguientes pasos.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Model Settings -->
+                <div class="step-content" *ngIf="currentStep === 2">
+                    <!-- Full Model Settings using Shared Component -->
+                    <app-ai-model-selector [parentForm]="conversationForm" providerControlName="provider"
+                        modelControlName="model" [filterByThinking]="filterByThinking" [filterByTools]="filterByTools">
+                    </app-ai-model-selector>
+
+                    <div class="form-group">
+                        <div class="toggle-field">
+                            <label class="toggle-label">
+                                <input type="checkbox" formControlName="synchronousChat">
+                                <span>Chat Síncrono</span>
+                            </label>
+                            <small>Si se desmarca, el chat funcionará en modo streaming (respuesta en tiempo
+                                real)</small>
+                        </div>
+                    </div>
+
+                    <!-- Memory Configuration -->
+                    <div class="form-group">
+                        <label>
+                            <i class="icon-brain"></i>
+                            Configuración de Memoria
+                        </label>
+                        <div class="toggle-field">
+                            <label class="toggle-label">
+                                <input type="checkbox" formControlName="semanticMemoryEnabled">
+                                <span>Habilitar Memoria Semántica</span>
+                            </label>
+                            <small>Busca en el historial de conversaciones anteriores</small>
+                        </div>
+                        <div *ngIf="conversationForm.get('semanticMemoryEnabled')?.value" class="memory-settings">
+                            <div class="form-field">
+                                <label for="memorySearchK">
+                                    Resultados de Búsqueda: {{ conversationForm.get('memorySearchK')?.value }}
+                                </label>
+                                <input type="range" id="memorySearchK" formControlName="memorySearchK" min="1" max="20"
+                                    step="1" class="slider">
+                                <small>Cantidad de mensajes previos a recuperar (1-20)</small>
+                            </div>
+                            <div class="form-field">
+                                <label for="memoryScoreThreshold">
+                                    Umbral de Confianza: {{ conversationForm.get('memoryScoreThreshold')?.value }}
+                                </label>
+                                <input type="range" id="memoryScoreThreshold" formControlName="memoryScoreThreshold"
+                                    min="0" max="1" step="0.1" class="slider">
+                                <small>Mínima similitud semántica requerida (0-1)</small>
+                            </div>
+                            <div class="toggle-field">
+                                <label class="toggle-label">
+                                    <input type="checkbox" formControlName="memoryAutoIndex">
+                                    <span>Indexación Automática</span>
+                                </label>
+                                <small>Indexa mensajes automáticamente para futuras búsquedas</small>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Step 3: Tools -->
+                <div class="step-content" *ngIf="currentStep === 3">
+                    <div class="form-group">
+                        <label>Modo de Herramientas</label>
+                        <div class="tool-mode-grid">
+                            <label *ngFor="let mode of toolModes" class="tool-mode-card"
+                                [class.selected]="conversationForm.get('toolMode')?.value === mode.value">
+                                <input type="radio" formControlName="toolMode" [value]="mode.value"
+                                    style="display: none;">
+                                <span class="mode-icon">{{ mode.icon }}</span>
+                                <span class="mode-label">{{ mode.label }}</span>
+                                <span class="mode-description">{{ mode.description }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Herramientas Habilitadas</label>
+                        <div class="tools-grid">
+                            <div *ngFor="let tool of availableTools" class="tool-card"
+                                [class.enabled]="isToolEnabled(tool.name)" (click)="toggleTool(tool.name)">
+                                <div class="tool-header">
+                                    <i [class]="getToolIcon(tool.category)"></i>
+                                    <h4>{{ tool.name }}</h4>
+                                </div>
+                                <p class="tool-description">{{ tool.description }}</p>
+                                <div class="tool-toggle">
+                                    <span *ngIf="isToolEnabled(tool.name)" class="enabled-badge">✓ Habilitado</span>
+                                    <span *ngIf="!isToolEnabled(tool.name)" class="disabled-badge">Deshabilitado</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="empty-state" *ngIf="availableTools.length === 0">
+                            <i class="icon-tool"></i>
+                            <p>No hay herramientas disponibles</p>
+                        </div>
+                    </div>
+
+                    <!-- RAG Collections Selection -->
+                    <div class="form-group" *ngIf="isToolEnabled('rag_search')">
+                        <label>Colecciones RAG (Opcional)</label>
+                        <div class="collections-list">
+                            <label *ngFor="let collection of collections" class="collection-item"
+                                [class.selected]="isCollectionSelected(collection.id)">
+                                <input type="checkbox" [checked]="isCollectionSelected(collection.id)"
+                                    (change)="toggleCollection(collection.id)">
+                                <div class="collection-info">
+                                    <span class="collection-name">{{ collection.display_name }}</span>
+                                    <span class="collection-desc">{{ collection.description }}</span>
+                                    <div class="collection-meta">
+                                        <span class="badge badge-category">{{ collection.category }}</span>
+                                        <span class="collection-vectors" *ngIf="collection.vector_count">
+                                            {{ collection.vector_count }} vectores
+                                        </span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="empty-state" *ngIf="collections.length === 0">
+                            <i class="icon-database"></i>
+                            <p>No hay colecciones RAG configuradas</p>
+                            <small>Configura colecciones en Qdrant para usar búsqueda RAG</small>
+                        </div>
+
+                        <!-- Parent Retrieval Configuration -->
+                        <div class="rag-settings-group"
+                            style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <div class="toggle-field">
+                                <label class="toggle-label">
+                                    <input type="checkbox" formControlName="ragEnableParentRetrieval">
+                                    <span>Habilitar Recuperación de Documento Padre</span>
+                                </label>
+                                <small>Recupera el contexto completo del documento original</small>
+                            </div>
+
+                            <div class="form-field" *ngIf="conversationForm.get('ragEnableParentRetrieval')?.value"
+                                style="margin-top: 0.5rem;">
+                                <label for="ragParentMode">Modo de Recuperación</label>
+                                <select id="ragParentMode" formControlName="ragParentMode" class="form-select">
+                                    <option value="full_parent">Documento Completo</option>
+                                    <option value="windowed">Ventana de Contexto</option>
+                                </select>
+                                <small>Define cuánto contexto adicional recuperar</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-box" *ngIf="conversationForm.get('toolMode')?.value === 'agent'">
+                        <i class="icon-info"></i>
+                        <div>
+                            <strong>🤖 Modo Agent:</strong> La IA decidirá automáticamente qué herramientas usar según
+                            el contexto de la conversación.
+                            Las herramientas seleccionadas estarán disponibles, pero no se usarán todas siempre.
+                        </div>
+                    </div>
+
+                    <div class="info-box" *ngIf="conversationForm.get('toolMode')?.value === 'manual'">
+                        <i class="icon-info"></i>
+                        <div>
+                            <strong>⚙️ Modo Manual:</strong> Solo se usarán las herramientas que actives explícitamente
+                            durante la conversación.
+                            Puedes activar/desactivar herramientas en cualquier momento.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" (click)="onClose()">
+                    Cancelar
+                </button>
+
+                <button type="button" class="btn-secondary" *ngIf="currentStep > 1" (click)="previousStep()">
+                    <i class="icon-arrow-left"></i>
+                    Anterior
+                </button>
+
+                <button type="button" class="btn-primary" *ngIf="currentStep < totalSteps"
+                    [disabled]="!canProceedToNextStep()" (click)="nextStep()">
+                    Siguiente
+                    <i class="icon-arrow-right"></i>
+                </button>
+
+                <button type="submit" class="btn-primary" *ngIf="currentStep === totalSteps"
+                    [disabled]="!conversationForm.valid">
+                    <i class="icon-check"></i>
+                    Crear Conversación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

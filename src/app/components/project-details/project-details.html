@@ -1,0 +1,136 @@
+<div class="project-details-container">
+  <header class="project-header">
+    <div class="header-top">
+      <div class="project-title">
+        <i class="icon-briefcase"></i>
+        <h2>{{ project.name }}</h2>
+      </div>
+      <button class="btn-icon" (click)="close.emit()" title="Cerrar proyecto">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+    <p class="project-description" *ngIf="project.description">{{ project.description }}</p>
+
+    <div class="project-tabs">
+      <button class="tab-btn" [class.active]="activeTab === 'conversations'" (click)="switchTab('conversations')">
+        Conversaciones
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'files'" (click)="switchTab('files')">
+        Archivos
+      </button>
+    </div>
+  </header>
+
+  <div class="project-content">
+
+    <!-- Conversations Tab -->
+    <div *ngIf="activeTab === 'conversations'" class="tab-content">
+      <div class="actions-bar">
+        <button class="btn-primary btn-sm" (click)="onNewConversation()">
+          <i class="icon-plus"></i>
+          Nueva Conversación
+        </button>
+
+        <button class="btn-danger btn-sm" style="margin-left: auto;" (click)="onDeleteProject()">
+          <i class="icon-trash"></i>
+          Eliminar Proyecto
+        </button>
+      </div>
+
+      <div class="list-container">
+        <div class="list-item conversation-item" *ngFor="let conv of conversations"
+          (click)="onOpenConversation(conv.id)">
+          <i class="icon-message-square"></i>
+          <div class="item-info">
+            <span class="item-title">{{ conv.title }}</span>
+            <span class="item-meta">Actualizado: {{ conv.updated_at | date:'short' }}</span>
+          </div>
+          <div class="item-actions">
+            <button class="btn-icon delete-btn" (click)="onDeleteConversation($event, conv)" title="Eliminar">
+              <i class="icon-trash"></i>
+            </button>
+            <i class="icon-chevron-right arrow-icon"></i>
+          </div>
+        </div>
+
+        <div *ngIf="conversations.length === 0 && !isLoading" class="empty-state">
+          <p>No hay conversaciones asociadas a este proyecto.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Files Tab -->
+    <div *ngIf="activeTab === 'files'" class="tab-content">
+      <div class="actions-bar">
+        <button class="btn-primary btn-sm" (click)="fileInput.click()">
+          <i class="icon-upload"></i>
+          Subir Archivo
+        </button>
+        <input #fileInput type="file" hidden (change)="onFileUpload($event)">
+
+        <button class="btn-danger btn-sm" style="margin-left: auto;" (click)="onDeleteProject()">
+          <i class="icon-trash"></i>
+          Eliminar Proyecto
+        </button>
+      </div>
+
+      <div class="list-container">
+
+        <!-- Uploading Files -->
+        <div class="list-item file-item uploading" *ngFor="let file of uploadingFiles">
+          <i [class]="file.name | fileIcon"></i>
+          <div class="item-info">
+            <div class="file-header">
+              <span class="item-title">{{ file.name }}</span>
+
+              <!-- Status Indicators -->
+              <ng-container *ngIf="!file.uploadError">
+                <span class="upload-percent" *ngIf="file.status === 'uploading'">Subiendo {{ file.uploadProgress
+                  }}%</span>
+                <span class="upload-percent processing" *ngIf="file.status === 'processing'">
+                  <i class="icon-loader spin"></i> Procesando {{ file.processingProgress }}%
+                </span>
+                <span class="upload-percent completed" *ngIf="file.status === 'completed'">
+                  <i class="icon-check"></i> Completado
+                </span>
+              </ng-container>
+
+              <span class="upload-error" *ngIf="file.uploadError">Error</span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar-container" *ngIf="!file.uploadError && file.status !== 'completed'">
+              <div class="progress-fill" [class.processing]="file.status === 'processing'"
+                [style.width.%]="file.status === 'uploading' ? file.uploadProgress : file.processingProgress">
+              </div>
+            </div>
+            <div class="error-text" *ngIf="file.uploadError">{{ file.errorMessage || 'Falló la subida' }}</div>
+          </div>
+        </div>
+
+        <!-- Uploaded Files -->
+        <div class="list-item file-item" *ngFor="let file of files">
+          <i [class]="file.file_name | fileIcon"></i>
+          <div class="item-info">
+            <span class="item-title">{{ file.file_name }}</span>
+            <span class="item-meta">
+              {{ (file.file_size / 1024).toFixed(1) }} KB • {{ file.uploaded_at | date:'short' }}
+            </span>
+          </div>
+
+          <div class="item-actions">
+            <button class="btn-icon delete-btn" (click)="onDeleteFile($event, file)"
+              title="Eliminar archivo y vectores">
+              <i class="icon-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="files.length === 0 && !isLoading" class="empty-state">
+          <p>No hay archivos en este proyecto.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

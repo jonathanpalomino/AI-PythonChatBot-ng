@@ -1,0 +1,344 @@
+<!-- src/app/components/custom-tools-manager/custom-tools-manager.html -->
+<div class="custom-tools-manager">
+    <div class="header">
+        <h2>Custom Tools Manager</h2>
+        <button (click)="showCreateForm()" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New Tool
+        </button>
+    </div>
+
+    <!-- Loading state -->
+    <div *ngIf="isLoading()" class="loading">
+        <div class="spinner"></div>
+        <p>Loading custom tools...</p>
+    </div>
+
+    <!-- Error state -->
+    <div *ngIf="error()" class="error-alert">
+        <p>{{ error() }}</p>
+        <button (click)="error.set(null)" class="btn btn-small">Dismiss</button>
+    </div>
+
+    <!-- Tools list -->
+    <div *ngIf="!isLoading() && tools().length === 0" class="empty-state">
+        <p>No custom tools found. Create your first custom tool!</p>
+    </div>
+
+    <div *ngIf="!isLoading() && tools().length > 0" class="tools-list">
+        <div *ngFor="let tool of tools()" class="tool-card">
+            <div class="tool-header">
+                <h3>{{ tool.name }}</h3>
+                <div class="tool-actions">
+                    <button (click)="showEditForm(tool)" class="btn btn-small btn-secondary">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button (click)="deleteTool(tool.id)" class="btn btn-small btn-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+            <p class="tool-description">{{ tool.description || 'No description' }}</p>
+            <div class="tool-details">
+                <span
+                    class="badge {{ tool.tool_type === 'sql' ? 'badge-sql' : (tool.configuration?.method === 'POST' ? 'badge-post' : 'badge-get') }}">
+                    {{ getToolTypeDisplayName(tool.tool_type) }}
+                </span>
+                <span *ngIf="tool.tool_type === 'sql'" class="tool-query">
+                    {{ tool.configuration?.query ? (tool.configuration.query.length > 50 ?
+                    (tool.configuration.query.substring(0, 50) + '...') : tool.configuration.query) : 'No query' }}
+                </span>
+                <span *ngIf="tool.tool_type !== 'sql'" class="tool-url">
+                    {{ tool.configuration?.url }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Form -->
+    <div *ngIf="showForm()" class="tool-form-overlay">
+        <div class="tool-form">
+            <div class="form-header">
+                <h3>{{ currentTool() ? 'Edit' : 'Create' }} Custom Tool</h3>
+                <button (click)="cancelForm()" class="btn btn-small btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form (ngSubmit)="saveTool()" class="form-content">
+                <!-- Tool Type Selection -->
+                <div class="form-section">
+                    <h4>Tool Type</h4>
+
+                    <div class="form-group">
+                        <label for="toolType">Tool Type *</label>
+                        <select id="toolType" [(ngModel)]="selectedToolType" name="toolType" required
+                            (change)="onToolTypeChange()" [disabled]="isLoading()">
+                            <option *ngFor="let type of getToolTypes()" [value]="type">
+                                {{ getToolTypeDisplayName(type) }}
+                            </option>
+                        </select>
+                        <div *ngIf="isLoading()" class="loading-indicator">
+                            Loading tool types...
+                        </div>
+                        <div *ngIf="showForm() && !isLoading()" class="tool-type-indicator">
+                            <i class="fas fa-info-circle"></i>
+                            Changing tool type will update the configuration fields below.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Basic Info -->
+                <div class="form-section">
+                    <h4>Basic Information</h4>
+
+                    <div class="form-group">
+                        <label for="toolName">Name *</label>
+                        <input id="toolName" type="text" [(ngModel)]="formData().name" name="name" required
+                            placeholder="e.g., polizas_cliente">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="toolDescription">Description</label>
+                        <textarea id="toolDescription" [(ngModel)]="formData().description" name="description"
+                            placeholder="Describe what this tool does"></textarea>
+                    </div>
+
+                    <!-- Dynamic configuration fields based on config_schema -->
+                    <div *ngIf="getCurrentToolSchema()" class="dynamic-config-section">
+                        <h4>Configuration</h4>
+
+                        <ng-container *ngFor="let field of getSchemaFields(); let i = index">
+                            <div [ngSwitch]="getFieldType(field.key)" class="dynamic-field">
+
+                                <!-- String fields -->
+                                <div *ngSwitchCase="'string'" class="form-group">
+                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                        <span *ngIf="field.value.required" class="required">*</span>
+                                    </label>
+                                    <input [id]="'field-' + i" type="text" [ngModel]="getFieldValue(field.key)"
+                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                        [required]="field.value.required"
+                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                    <small *ngIf="field.value.description" class="field-description">
+                                        {{ field.value.description }}
+                                    </small>
+                                </div>
+
+                                <!-- String fields with enum (select) -->
+                                <div *ngSwitchCase="'string_enum'" class="form-group">
+                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                        <span *ngIf="field.value.required" class="required">*</span>
+                                    </label>
+                                    <select [id]="'field-' + i" [ngModel]="getFieldValue(field.key)"
+                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                        [required]="field.value.required">
+                                        <option *ngFor="let option of field.value.enum" [value]="option">
+                                            {{ option }}
+                                        </option>
+                                    </select>
+                                    <small *ngIf="field.value.description" class="field-description">
+                                        {{ field.value.description }}
+                                    </small>
+                                </div>
+
+                                <!-- Number fields -->
+                                <div *ngSwitchCase="'number'" class="form-group">
+                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                        <span *ngIf="field.value.required" class="required">*</span>
+                                    </label>
+                                    <input [id]="'field-' + i" type="number" [ngModel]="getFieldValue(field.key)"
+                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                        [required]="field.value.required" [min]="field.value.minimum"
+                                        [max]="field.value.maximum"
+                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                    <small *ngIf="field.value.description" class="field-description">
+                                        {{ field.value.description }}
+                                    </small>
+                                    <small *ngIf="field.value.minimum || field.value.maximum" class="field-limits">
+                                        Range: {{ field.value.minimum || 'no limit' }} - {{ field.value.maximum || 'no
+                                        limit' }}
+                                    </small>
+                                </div>
+
+                                <!-- Boolean fields -->
+                                <div *ngSwitchCase="'boolean'" class="form-group">
+                                    <label>
+                                        <input type="checkbox" [ngModel]="getFieldValue(field.key)"
+                                            (ngModelChange)="updateDynamicConfig(field.key, $event)"
+                                            [name]="'field-' + i">
+                                        {{ getFieldLabel(field.key) }}
+                                        <span *ngIf="field.value.required" class="required">*</span>
+                                    </label>
+                                    <small *ngIf="field.value.description" class="field-description">
+                                        {{ field.value.description }}
+                                    </small>
+                                </div>
+
+                                <!-- Object fields (for complex nested configurations) -->
+                                <div *ngSwitchCase="'object'" class="form-group">
+                                    <!-- Special handling for params field (key-value format) -->
+                                    <div *ngIf="shouldUseKeyValueForm(field.key, 'object')"
+                                        class="params-key-value-section">
+                                        <label>{{ getFieldLabel(field.key) }}
+                                            <span *ngIf="field.value.required" class="required">*</span>
+                                        </label>
+                                        <small *ngIf="field.value.description" class="field-description">
+                                            {{ field.value.description }}
+                                        </small>
+
+                                        <app-key-value-form [items]="getObjectParamsAsKeyValueItems()"
+                                            (itemsChange)="updateObjectParamsFromKeyValueItems($event)"
+                                            [title]="'Parameters (Key-Value)'" [keyPlaceholder]="'Parameter name'"
+                                            [valuePlaceholder]="'Parameter value'" [keyLabel]="'Parameter'"
+                                            [valueLabel]="'Value'" [addButtonText]="'Add Parameter'"
+                                            [removeButtonText]="'Remove'" [showHeaders]="true"
+                                            [disabled]="isLoading()"></app-key-value-form>
+                                    </div>
+
+                                    <!-- Regular object fields -->
+                                    <div *ngIf="!shouldUseKeyValueForm(field.key, 'object')">
+                                        <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                            <span *ngIf="field.value.required" class="required">*</span>
+                                        </label>
+                                        <textarea [id]="'field-' + i"
+                                            [ngModel]="formatObjectAsJson(getFieldValue(field.key))"
+                                            (ngModelChange)="updateObjectConfig(field.key, $event)"
+                                            [name]="'field-' + i" [required]="field.value.required" rows="3"
+                                            placeholder='{"key": "value"}'>
+                                        </textarea>
+                                        <small *ngIf="field.value.description" class="field-description">
+                                            {{ field.value.description }} (JSON format)
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Array fields (for parameters and headers) -->
+                                <div *ngSwitchCase="'array'" class="form-group array-field">
+                                    <!-- Special handling for params field (key-value format) -->
+                                    <div *ngIf="isParamsField(field.key)" class="params-key-value-section">
+                                        <label>{{ getFieldLabel(field.key) }}
+                                            <span *ngIf="field.value.required" class="required">*</span>
+                                        </label>
+                                        <small *ngIf="field.value.description" class="field-description">
+                                            {{ field.value.description }}
+                                        </small>
+
+                                        <app-key-value-form [items]="getParamsAsKeyValueItems()"
+                                            (itemsChange)="updateParamsFromKeyValueItems($event)"
+                                            [title]="'Parameters (Key-Value)'" [keyPlaceholder]="'Parameter name'"
+                                            [valuePlaceholder]="'Parameter description'" [keyLabel]="'Parameter'"
+                                            [valueLabel]="'Description'" [addButtonText]="'Add Parameter'"
+                                            [removeButtonText]="'Remove'" [showHeaders]="true"
+                                            [disabled]="isLoading()"></app-key-value-form>
+                                    </div>
+
+                                    <!-- Regular array fields -->
+                                    <div *ngIf="!isParamsField(field.key)">
+                                        <label>{{ getFieldLabel(field.key) }}
+                                            <span *ngIf="field.value.required" class="required">*</span>
+                                        </label>
+                                        <small *ngIf="field.value.description" class="field-description">
+                                            {{ field.value.description }}
+                                        </small>
+
+                                        <!-- Array management UI -->
+                                        <div *ngIf="getFieldValue(field.key) && getFieldValue(field.key).length > 0"
+                                            class="array-items">
+                                            <div *ngFor="let item of getArrayItems(field.key); let j = index"
+                                                class="array-item">
+                                                <div *ngIf="isObjectArray(field.key)" class="array-object-item">
+                                                    <strong>{{ getObjectArrayDisplay(item) }}</strong>
+                                                    <button type="button" (click)="removeArrayItem(field.key, j)"
+                                                        class="btn btn-small btn-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <div *ngIf="!isObjectArray(field.key)" class="array-primitive-item">
+                                                    <span>{{ item }}</span>
+                                                    <button type="button" (click)="removeArrayItem(field.key, j)"
+                                                        class="btn btn-small btn-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Add new item form -->
+                                        <div *ngIf="isObjectArray(field.key)" class="add-array-item-form">
+                                            <h5>Add {{ getFieldLabel(field.key).slice(0, -1) }}</h5>
+                                            <div class="form-row">
+                                                <div class="form-group"
+                                                    *ngFor="let prop of getObjectArrayProperties(field.key)">
+                                                    <label [attr.for]="'new-' + field.key + '-' + prop">{{ prop |
+                                                        titlecase
+                                                        }}</label>
+                                                    <input [id]="'new-' + field.key + '-' + prop" type="text"
+                                                        [ngModel]="getNewArrayItemObject()[field.key]?.[prop]"
+                                                        (ngModelChange)="updateNewArrayItemObject(field.key, prop, $event)"
+                                                        [name]="'new-' + field.key + '-' + prop" [placeholder]="prop">
+                                                </div>
+                                            </div>
+                                            <button type="button" (click)="addArrayItem(field.key)"
+                                                class="btn btn-small btn-secondary">
+                                                <i class="fas fa-plus"></i> Add {{ getFieldLabel(field.key).slice(0, -1)
+                                                }}
+                                            </button>
+                                        </div>
+                                        <div *ngIf="!isObjectArray(field.key)" class="add-array-item-form">
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <label [attr.for]="'new-' + field.key">Value</label>
+                                                    <input [id]="'new-' + field.key" type="text"
+                                                        [ngModel]="getNewArrayItemValue()[field.key]"
+                                                        (ngModelChange)="updateNewArrayItemValue(field.key, $event)"
+                                                        [name]="'new-' + field.key" placeholder="Enter value">
+                                                </div>
+                                            </div>
+                                            <button type="button" (click)="addArrayItem(field.key)"
+                                                class="btn btn-small btn-secondary">
+                                                <i class="fas fa-plus"></i> Add {{ getFieldLabel(field.key).slice(0, -1)
+                                                }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Password fields (string with format: password) -->
+                                <div *ngSwitchCase="'password'" class="form-group">
+                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                        <span *ngIf="field.value.required" class="required">*</span>
+                                    </label>
+                                    <input [id]="'field-' + i" type="password" [ngModel]="getFieldValue(field.key)"
+                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                        [required]="field.value.required"
+                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                    <small *ngIf="field.value.description" class="field-description">
+                                        {{ field.value.description }}
+                                    </small>
+                                </div>
+
+                            </div>
+                        </ng-container>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" [(ngModel)]="formData().is_active" name="is_active">
+                            Active
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" (click)="cancelForm()" class="btn btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {{ currentTool() ? 'Update' : 'Create' }} Tool
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

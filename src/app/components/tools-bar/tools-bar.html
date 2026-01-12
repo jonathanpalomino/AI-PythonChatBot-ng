@@ -1,0 +1,113 @@
+<!-- src/app/components/tools-bar/tools-bar.html -->
+<div class="quick-tools" *ngIf="activeConversation">
+
+    <div class="tools-divider"></div>
+
+    <!-- RAG Tool con Dropdown de Colecciones -->
+    <div class="tool-wrapper">
+        <button class="tool-toggle" [class.active]="isToolActive('rag_search')" (click)="toggleTool('rag_search')"
+            title="RAG Search">
+            <i class="icon-search"></i>
+            <span>RAG</span>
+        </button>
+
+          <!-- Badge de colección activa (solo si RAG está activo) -->
+        <div class="collection-badge" *ngIf="isToolActive('rag_search')" [class.temporary]="hasTemporaryCollection"
+            (click)="toggleCollectionsDropdown($event)" title="Click para cambiar colección">
+            <i class="icon-database"></i>
+            <span>{{ getCollectionBadgeText() }}</span>
+            <i class="icon-arrow-down"></i>
+        </div>
+
+          <!-- Dropdown de colecciones (se muestra al hacer click en badge) -->
+        <div class="collections-dropdown" *ngIf="showCollectionsDropdown" (click)="$event.stopPropagation()">
+
+            <!-- Header del dropdown -->
+            <div class="dropdown-header">
+                <i class="icon-database"></i>
+                <span>Seleccionar Colección</span>
+            </div>
+
+            <!-- Body con opciones -->
+            <div class="dropdown-body">
+
+              <!-- Opción: Sin colección (solo si NO hay archivos adjuntos) -->
+                <button class="collection-option" [class.selected]="!selectedCollectionId && !hasTemporaryCollection"
+                    (click)="selectCollection(null)" *ngIf="!hasTemporaryCollection">
+                    <i class="icon-x"></i>
+                    <div class="option-info">
+                        <span class="option-name">Sin colección</span>
+                        <span class="option-desc">Solo conocimiento del modelo</span>
+                    </div>
+                </button>
+
+              <!-- Opción: Colección temporal (archivos adjuntos) -->
+                <button class="collection-option temporary-option" [class.selected]="hasTemporaryCollection"
+                    *ngIf="hasTemporaryCollection" disabled>
+                    <i class="icon-file"></i>
+                    <div class="option-info">
+                  <span class="option-name">
+                    Colección Temporal
+                    <span class="badge badge-temp">AUTO</span>
+                  </span>
+                  <span class="option-desc">
+                    Usando {{ uploadedFileIds.length }} archivo(s) adjunto(s)
+                  </span>
+                    </div>
+                    <i class="icon-check"></i>
+                </button>
+                
+				<!-- Divider si hay ambas opciones -->
+              <div class="dropdown-divider" *ngIf="hasTemporaryCollection && availableCollections.length > 0">
+              </div>
+
+              <!-- Lista de colecciones disponibles -->
+                <button class="collection-option" *ngFor="let collection of availableCollections"
+                    [class.selected]="selectedCollectionId === collection.id" (click)="selectCollection(collection.id)">
+                    <i class="icon-database"></i>
+                    <div class="option-info">
+                        <span class="option-name">{{ collection.display_name }}</span>
+                  <span class="option-desc">
+                    {{ collection.description || collection.category }}
+                    <span *ngIf="collection.vector_count" class="vector-count">
+                      • {{ collection.vector_count }} vectores
+                    </span>
+                  </span>
+                    </div>
+                    <i class="icon-check" *ngIf="selectedCollectionId === collection.id"></i>
+                </button>
+
+              <!-- Empty state (no hay colecciones ni archivos) -->
+              <div class="dropdown-empty" *ngIf="availableCollections.length === 0 && uploadedFileIds.length === 0">
+                <i class="icon-inbox"></i>
+                <p>No hay colecciones disponibles</p>
+                <small>Sube archivos o configura colecciones en Qdrant</small>
+              </div>
+            </div>
+
+            <!-- Footer con info -->
+            <div class="dropdown-footer" *ngIf="availableCollections.length > 0">
+              <small>
+                <i class="icon-info"></i>
+                Los archivos adjuntos crean una colección temporal automáticamente
+              </small>
+            </div>
+        </div>
+    </div>
+
+        <!-- Other Tools (dynamic, excluding RAG which has special treatment above) -->
+    <button class="tool-toggle" *ngFor="let tool of getNonRagTools()" [class.active]="isToolActive(tool.name)"
+          (click)="toggleTool(tool.name)" [title]="tool.description || tool.display_name || tool.name">
+        <i [class]="getToolIcon(tool.name)"></i>
+        <span>{{ getToolLabel(tool.name) }}</span>
+    </button>
+
+        <!-- Divider -->
+    <div class="tools-divider"></div>
+
+    <!-- Regenerate Button -->
+    <button class="btn-icon-small" (click)="regenerate()" [disabled]="messagesLength === 0 || isLoading"
+        title="Regenerar última respuesta">
+        <i class="icon-refresh"></i>
+    </button>
+</div>

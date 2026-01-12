@@ -1,0 +1,415 @@
+// src/app/components/ai-model-selector/ai-model-selector.component.scss
+
+.model-settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+// Section & Labels
+.form-section {
+    margin-bottom: 0.25rem;
+
+    &.h-100 {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.section-label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.temperature-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-weight: normal;
+}
+
+// 4-Column Grid Layout
+.settings-grid-4-cols {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 0.6fr 0.6fr; // Col 1 wider, Cols 2-4 narrower
+    gap: 1.5rem;
+    align-items: start;
+}
+
+// 3-Column Grid Layout (kept for backward compatibility)
+.settings-grid-3-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr 0.6fr; // Col 1 & 2 equal, Col 3 narrower
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.settings-col-narrow {
+    min-width: 120px;
+}
+
+.settings-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+// Inputs & Selects
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    height: 32px;
+    box-sizing: border-box;
+
+    &:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+}
+
+// Provider grid
+.provider-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 0.5rem;
+}
+
+.provider-card-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-secondary);
+    min-width: 60px;
+
+    .provider-icon-sm {
+        font-size: 1.1rem;
+    }
+
+    .provider-label-sm {
+        font-size: 0.65rem;
+        font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    &:hover {
+        border-color: var(--primary-color);
+        background: var(--bg-secondary);
+        transform: translateY(-1px);
+    }
+
+    &.selected {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+
+        .provider-label-sm {
+            color: white;
+        }
+    }
+
+    &.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: var(--bg-tertiary);
+
+        .provider-icon-sm,
+        .provider-label-sm {
+            color: var(--text-tertiary);
+        }
+
+        &:hover {
+            border-color: var(--border-color);
+            background: var(--bg-tertiary);
+            transform: none;
+        }
+
+        &.selected {
+            border-color: var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-tertiary);
+
+            .provider-label-sm {
+                color: var(--text-tertiary);
+            }
+        }
+    }
+}
+
+// Hallucination Vertical List
+.hallucination-list-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.hallucination-card-compact {
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+
+    .mode-content {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .mode-icon {
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    .mode-text {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    .mode-label {
+        font-weight: 500;
+        font-size: 0.7rem;
+    }
+
+    &:hover {
+        border-color: var(--primary-color);
+    }
+
+    &.selected {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+    }
+}
+
+// Vertical Slider
+.slider-vertical-container {
+    display: flex;
+    flex-direction: row; // Labels left, slider right
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    height: 100%;
+    min-height: 120px;
+    padding: 0.5rem 0;
+}
+
+.slider-labels-vertical {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    text-align: right;
+    padding: 0.5rem 0;
+}
+
+.slider-vertical {
+    writing-mode: bt-lr;
+    /* IE */
+    -webkit-appearance: slider-vertical;
+    /* WebKit */
+    width: 6px;
+    height: 100%;
+    background: var(--bg-tertiary);
+    outline: none;
+    border-radius: 3px;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+}
+
+// Checkbox
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    cursor: pointer;
+    margin-top: 0.25rem;
+
+    input[type="checkbox"] {
+        width: 12px;
+        height: 12px;
+        cursor: pointer;
+    }
+
+    span {
+        font-size: 0.7rem;
+        color: var(--text-primary);
+    }
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+// Model Capability Badges
+.model-badges {
+    margin-top: 0.5rem;
+}
+
+.capability-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    white-space: nowrap;
+
+    &.badge-primary {
+        background-color: rgba(99, 102, 241, 0.1);
+        color: rgb(99, 102, 241);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    &.badge-secondary {
+        background-color: rgba(139, 92, 246, 0.1);
+        color: rgb(139, 92, 246);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    &.badge-accent {
+        background-color: rgba(236, 72, 153, 0.1);
+        color: rgb(236, 72, 153);
+        border: 1px solid rgba(236, 72, 153, 0.2);
+    }
+
+    &.badge-outline {
+        background-color: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+
+    &.badge-success {
+        background-color: rgba(34, 197, 94, 0.1);
+        color: rgb(34, 197, 94);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    &.badge-error {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: rgb(239, 68, 68);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+}
+
+// Provider Attribute Badges
+.provider-attribute-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    .settings-grid-3-cols {
+        grid-template-columns: 1fr; // Stack all columns
+        gap: 1rem;
+    }
+
+    .slider-vertical-container {
+        flex-direction: column;
+        height: auto;
+        min-height: auto;
+        gap: 0.5rem;
+    }
+
+    .slider-vertical {
+        -webkit-appearance: slider-horizontal;
+        width: 100%;
+        height: 6px;
+    }
+
+    .slider-labels-vertical {
+        flex-direction: row;
+        width: 100%;
+        height: auto;
+        order: 2;
+    }
+}
+
+// Cost Filter Buttons
+.filter-group {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 2px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    width: fit-content;
+    margin: 0.5rem auto 0;
+}
+
+.btn-xs {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    border: 1px solid transparent; // Reserve space for border
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    line-height: 1;
+
+    &:hover {
+        color: var(--text-primary);
+        background: rgba(0, 0, 0, 0.05); // Subtle hover effect
+    }
+
+    &.active {
+        background: var(--bg-primary); // Card-like active state
+        color: var(--primary-color);
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border-color: rgba(0, 0, 0, 0.05);
+    }
+}

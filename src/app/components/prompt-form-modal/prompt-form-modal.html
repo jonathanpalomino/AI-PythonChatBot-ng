@@ -1,0 +1,225 @@
+<!-- src/app/components/prompt-form-modal/prompt-form-modal.html -->
+<div class="modal-overlay" *ngIf="show" (click)="onOverlayClick($event)">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <h2>{{ prompt ? 'Editar Plantilla' : 'Nueva Plantilla de Prompt' }}</h2>
+            <button class="btn-close" (click)="onClose()">
+                <i class="icon-x"></i>
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="modal-tabs">
+            <button class="tab-btn" [class.active]="currentTab === 'basic'" (click)="switchTab('basic')">
+                <i class="icon-info"></i>
+                Información Básica
+            </button>
+            <button class="tab-btn" [class.active]="currentTab === 'prompts'" (click)="switchTab('prompts')">
+                <i class="icon-message-square"></i>
+                Prompts
+            </button>
+            <button class="tab-btn" [class.active]="currentTab === 'variables'" (click)="switchTab('variables')">
+                <i class="icon-code"></i>
+                Variables
+            </button>
+            <button class="tab-btn" [class.active]="currentTab === 'settings'" (click)="switchTab('settings')">
+                <i class="icon-sliders"></i>
+                Configuración
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+
+            <!-- Basic Info Tab -->
+            <div class="tab-content" *ngIf="currentTab === 'basic'">
+                <div class="form-group">
+                    <label for="name">
+                        Nombre <span class="required">*</span>
+                    </label>
+                    <input type="text" id="name" [(ngModel)]="formData.name"
+                        placeholder="Ej: Asistente de Código Python" />
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descripción</label>
+                    <textarea id="description" [(ngModel)]="formData.description" rows="3"
+                        placeholder="Describe el propósito de esta plantilla..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="category">
+                            Categoría <span class="required">*</span>
+                        </label>
+                        <input type="text" id="category" [(ngModel)]="formData.category" list="categories-list"
+                            placeholder="Ej: Desarrollo, Análisis..." />
+                        <datalist id="categories-list">
+                            <option *ngFor="let cat of categories" [value]="cat">
+                        </datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="visibility">Visibilidad</label>
+                        <select id="visibility" [(ngModel)]="formData.visibility">
+                            <option *ngFor="let opt of visibilityOptions" [value]="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" [(ngModel)]="formData.is_active" />
+                        Activo
+                    </label>
+                </div>
+            </div>
+
+            <!-- Prompts Tab -->
+            <div class="tab-content" *ngIf="currentTab === 'prompts'">
+                <div class="form-group">
+                    <label for="system-prompt">System Prompt</label>
+                    <div class="help-text">Instrucciones base para el comportamiento del modelo.</div>
+                    <textarea id="system-prompt" [(ngModel)]="formData.system_prompt" rows="10" class="code-editor"
+                        placeholder="Eres un experto en..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="user-prompt">User Prompt Template</label>
+                    <div class="help-text">Plantilla para el mensaje del usuario. Usa {{ '{' }}{{ '{' }}variable{{ '}'
+                        }}{{ '}' }} para insertar variables dinámicas.</div>
+                    <textarea id="user-prompt" [(ngModel)]="formData.user_prompt_template" rows="5" class="code-editor"
+                        placeholder="Analiza el siguiente código: {{ '{' }}{{ '{' }}code{{ '}' }}{{ '}' }}"></textarea>
+                </div>
+            </div>
+
+            <!-- Variables Tab -->
+            <div class="tab-content" *ngIf="currentTab === 'variables'">
+                <div class="variables-list">
+                    <div class="variable-item" *ngFor="let variable of formData.variables; let i = index">
+                        <div class="variable-header">
+                            <span class="variable-name">{{ variable.name }}</span>
+                            <span class="variable-type badge">{{ variable.type }}</span>
+                            <button class="btn-icon danger" (click)="removeVariable(i)">
+                                <i class="icon-trash"></i>
+                            </button>
+                        </div>
+                        <div class="variable-details">
+                            <div class="detail-row">
+                                <label>Descripción:</label>
+                                <input type="text" [(ngModel)]="variable.description"
+                                    placeholder="Descripción para el usuario" />
+                            </div>
+                            <div class="detail-row">
+                                <label>Default:</label>
+                                <input type="text" [(ngModel)]="variable.default" placeholder="Valor por defecto" />
+                            </div>
+                            <div class="detail-row checkbox">
+                                <label>
+                                    <input type="checkbox" [(ngModel)]="variable.required" />
+                                    Requerido
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-variable-form">
+                    <h4>Agregar Variable</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" [(ngModel)]="newVariable.name" placeholder="nombre_variable" />
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select [(ngModel)]="newVariable.type">
+                                <option value="string">Texto</option>
+                                <option value="number">Número</option>
+                                <option value="boolean">Booleano</option>
+                                <option value="select">Selección</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn-secondary full-width" (click)="addVariable()">
+                        <i class="icon-plus"></i> Agregar Variable
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" *ngIf="currentTab === 'settings'">
+                <div class="settings-grid">
+
+                    <div class="form-group">
+                        <label class="section-label">Herramientas Recomendadas</label>
+                        <div class="provider-grid-compact">
+                            <label *ngFor="let tool of availableTools" class="provider-card-compact"
+                                [class.selected]="isToolSelected(tool.name)">
+                                <input type="checkbox" [checked]="isToolSelected(tool.name)"
+                                    (change)="toggleTool(tool.name)" style="display: none;">
+                                <span class="provider-icon-sm">{{ tool.icon || '🔧' }}</span>
+                                <span class="provider-label-sm">{{ tool.label || tool.name }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="section-label">Proveedor de IA Recomendado</label>
+                        <div class="provider-grid-compact">
+                            <label *ngFor="let provider of providers" class="provider-card-compact"
+                                [class.selected]="formData.settings?.recommended_provider === provider.value"
+                                [class.disabled]="!provider.isAvailable">
+                                <input type="radio" name="recommended_provider"
+                                    [(ngModel)]="formData.settings!.recommended_provider" [value]="provider.value"
+                                    [disabled]="!provider.isAvailable" style="display: none;">
+                                <span class="provider-icon-sm">{{ provider.icon }}</span>
+                                <span class="provider-label-sm">{{ provider.label }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="section-label">Modelo Recomendado</label>
+                        <select [(ngModel)]="formData.settings!.recommended_model" class="form-select">
+                            <option value="" disabled>Selecciona un modelo</option>
+                            <option *ngFor="let model of getAvailableModels()" [value]="model">
+                                {{ model }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Temperatura: {{ formData.settings?.temperature }}</label>
+                        <input type="range" [(ngModel)]="formData.settings!.temperature" min="0" max="2" step="0.1" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Max Tokens</label>
+                        <input type="number" [(ngModel)]="formData.settings!.max_tokens" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Top P</label>
+                        <input type="number" [(ngModel)]="formData.settings!.top_p" step="0.1" min="0" max="1" />
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+            <button class="btn-secondary" (click)="onClose()">Cancelar</button>
+            <button class="btn-primary" (click)="onSave()">
+                <i class="icon-save"></i>
+                {{ prompt ? 'Guardar Cambios' : 'Crear Plantilla' }}
+            </button>
+        </div>
+
+    </div>
+</div>

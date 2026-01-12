@@ -1,0 +1,79 @@
+<!-- src/app/components/prompt-manager/prompt-manager.html -->
+<div class="prompt-manager">
+    <!-- Header with filters and create button -->
+    <div class="manager-header">
+        <h3>Plantillas de Prompts</h3>
+        <button class="btn-primary" (click)="openCreateModal()">
+            <i class="icon-plus"></i>
+            Nueva Plantilla
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <div class="filter-group">
+            <label>Categoría:</label>
+            <select [(ngModel)]="selectedCategory" (change)="filterByCategory(selectedCategory)">
+                <option [value]="null">Todas</option>
+                <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Visibilidad:</label>
+            <select [(ngModel)]="selectedVisibility" (change)="filterByVisibility(selectedVisibility)">
+                <option [value]="null">Todas</option>
+                <option value="public">Públicas</option>
+                <option value="private">Privadas</option>
+                <option value="shared">Compartidas</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading">
+        <div class="spinner"></div>
+        <p>Cargando plantillas...</p>
+    </div>
+
+    <!-- Prompts Grid -->
+    <div *ngIf="!isLoading" class="prompts-grid">
+        <div *ngFor="let prompt of filteredPrompts" class="prompt-card" (click)="openEditModal(prompt)">
+            <div class="card-header">
+                <h4>{{ prompt.name }}</h4>
+                <div class="card-actions">
+                    <span class="badge" [ngClass]="getVisibilityBadgeClass(prompt.visibility)">
+                        {{ prompt.visibility }}
+                    </span>
+                    <button class="btn-icon btn-danger" (click)="deletePrompt(prompt.id, $event)" title="Eliminar">
+                        <i class="icon-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <p class="description">{{ prompt.description || 'Sin descripción' }}</p>
+                <div class="card-meta">
+                    <span class="category">
+                        <i class="icon-tag"></i>
+                        {{ prompt.category }}
+                    </span>
+                    <span class="version">v{{ prompt.version }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && filteredPrompts.length === 0" class="empty-state">
+            <i class="icon-message-square"></i>
+            <p>No se encontraron plantillas de prompts.</p>
+            <button class="btn-secondary" (click)="openCreateModal()">
+                Crear Primera Plantilla
+            </button>
+        </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <app-prompt-form-modal [show]="showFormModal" [prompt]="editingPrompt" (close)="closeFormModal()"
+        (save)="handleSave($event)">
+    </app-prompt-form-modal>
