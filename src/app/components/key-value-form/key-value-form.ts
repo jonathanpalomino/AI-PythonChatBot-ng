@@ -1,5 +1,5 @@
-// src/app/components/key-value-form/key-value-form.ts
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 export interface KeyValueItem {
@@ -10,7 +10,7 @@ export interface KeyValueItem {
 @Component({
     selector: 'app-key-value-form',
     standalone: true,
-    imports: [FormsModule],
+    imports: [CommonModule, FormsModule],
     templateUrl: './key-value-form.html',
     styleUrls: ['./key-value-form.scss']
 })

@@ -113,7 +113,7 @@ export class PromptManager implements OnInit, OnDestroy {
     handleSave(promptData: Partial<PromptTemplate>): void {
         if (this.editingPrompt) {
             // Update existing
-            this.apiService.updatePromptTemplate(this.editingPrompt.id, promptData)
+            this.apiService.updatePromptTemplate(this.editingPrompt.id, promptData as any)
                 .pipe(takeUntil(this.destroy$))
                 .subscribe({
                     next: (updatedPrompt) => {
@@ -131,7 +131,7 @@ export class PromptManager implements OnInit, OnDestroy {
                 });
         } else {
             // Create new
-            this.apiService.createPromptTemplate(promptData)
+            this.apiService.createPromptTemplate(promptData as any)
                 .pipe(takeUntil(this.destroy$))
                 .subscribe({
                     next: (newPrompt) => {

@@ -40,15 +40,15 @@
             <p class="tool-description">{{ tool.description || 'No description' }}</p>
             <div class="tool-details">
                 <span
-                    class="badge {{ tool.tool_type === 'sql' ? 'badge-sql' : (tool.configuration?.method === 'POST' ? 'badge-post' : 'badge-get') }}">
+                    class="badge {{ tool.tool_type === 'sql_query' ? 'badge-sql' : (tool.configuration['method'] === 'POST' ? 'badge-post' : 'badge-get') }}">
                     {{ getToolTypeDisplayName(tool.tool_type) }}
                 </span>
-                <span *ngIf="tool.tool_type === 'sql'" class="tool-query">
-                    {{ tool.configuration?.query ? (tool.configuration.query.length > 50 ?
-                    (tool.configuration.query.substring(0, 50) + '...') : tool.configuration.query) : 'No query' }}
+                <span *ngIf="tool.tool_type === 'sql_query'" class="tool-query">
+                    {{ tool.configuration['query'] ? (tool.configuration['query'].length > 50 ?
+                    (tool.configuration['query'].substring(0, 50) + '...') : tool.configuration['query']) : 'No query' }}
                 </span>
-                <span *ngIf="tool.tool_type !== 'sql'" class="tool-url">
-                    {{ tool.configuration?.url }}
+                <span *ngIf="tool.tool_type !== 'sql_query'" class="tool-url">
+                    {{ tool.configuration['url'] }}
                 </span>
             </div>
         </div>
@@ -65,271 +65,488 @@
             </div>
 
             <form (ngSubmit)="saveTool()" class="form-content">
-                <!-- Tool Type Selection -->
-                <div class="form-section">
-                    <h4>Tool Type</h4>
-
-                    <div class="form-group">
-                        <label for="toolType">Tool Type *</label>
-                        <select id="toolType" [(ngModel)]="selectedToolType" name="toolType" required
-                            (change)="onToolTypeChange()" [disabled]="isLoading()">
-                            <option *ngFor="let type of getToolTypes()" [value]="type">
-                                {{ getToolTypeDisplayName(type) }}
-                            </option>
-                        </select>
-                        <div *ngIf="isLoading()" class="loading-indicator">
-                            Loading tool types...
-                        </div>
-                        <div *ngIf="showForm() && !isLoading()" class="tool-type-indicator">
-                            <i class="fas fa-info-circle"></i>
-                            Changing tool type will update the configuration fields below.
-                        </div>
-                    </div>
+                <!-- Tab Navigation -->
+                <div class="form-tabs">
+                    <button type="button" class="tab-btn" [class.active]="activeTab() === 'general'" (click)="setActiveTab('general')">
+                        <i class="fas fa-info-circle"></i> General
+                    </button>
+                    <button type="button" class="tab-btn" [class.active]="activeTab() === 'intent'" (click)="setActiveTab('intent')">
+                        <i class="fas fa-brain"></i> Recognition
+                    </button>
+                    <button type="button" class="tab-btn" [class.active]="activeTab() === 'config'" (click)="setActiveTab('config')">
+                        <i class="fas fa-cog"></i> Configuration
+                    </button>
                 </div>
 
-                <!-- Basic Info -->
-                <div class="form-section">
-                    <h4>Basic Information</h4>
-
-                    <div class="form-group">
-                        <label for="toolName">Name *</label>
-                        <input id="toolName" type="text" [(ngModel)]="formData().name" name="name" required
-                            placeholder="e.g., polizas_cliente">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="toolDescription">Description</label>
-                        <textarea id="toolDescription" [(ngModel)]="formData().description" name="description"
-                            placeholder="Describe what this tool does"></textarea>
-                    </div>
-
-                    <!-- Dynamic configuration fields based on config_schema -->
-                    <div *ngIf="getCurrentToolSchema()" class="dynamic-config-section">
-                        <h4>Configuration</h4>
-
-                        <ng-container *ngFor="let field of getSchemaFields(); let i = index">
-                            <div [ngSwitch]="getFieldType(field.key)" class="dynamic-field">
-
-                                <!-- String fields -->
-                                <div *ngSwitchCase="'string'" class="form-group">
-                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
-                                        <span *ngIf="field.value.required" class="required">*</span>
-                                    </label>
-                                    <input [id]="'field-' + i" type="text" [ngModel]="getFieldValue(field.key)"
-                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
-                                        [required]="field.value.required"
-                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
-                                    <small *ngIf="field.value.description" class="field-description">
-                                        {{ field.value.description }}
-                                    </small>
+                <div class="tab-content-container">
+                    <!-- Tab 1: General -->
+                    <div *ngIf="activeTab() === 'general'" class="tab-pane">
+                        <div class="form-section">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="toolName">Name *</label>
+                                    <input id="toolName" type="text" [(ngModel)]="formData().name" name="name" required
+                                        placeholder="e.g., polizas_cliente">
                                 </div>
-
-                                <!-- String fields with enum (select) -->
-                                <div *ngSwitchCase="'string_enum'" class="form-group">
-                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
-                                        <span *ngIf="field.value.required" class="required">*</span>
-                                    </label>
-                                    <select [id]="'field-' + i" [ngModel]="getFieldValue(field.key)"
-                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
-                                        [required]="field.value.required">
-                                        <option *ngFor="let option of field.value.enum" [value]="option">
-                                            {{ option }}
+                                <div class="form-group">
+                                    <label for="toolType">Tool Type *</label>
+                                    <select id="toolType"
+                                        [ngModel]="selectedToolType()"
+                                        (ngModelChange)="selectedToolType.set($event); onToolTypeChange()"
+                                        name="toolType" required
+                                        [disabled]="isLoading()">
+                                        <option *ngFor="let type of getToolTypes()" [value]="type">
+                                            {{ getToolTypeDisplayName(type) }}
                                         </option>
                                     </select>
-                                    <small *ngIf="field.value.description" class="field-description">
-                                        {{ field.value.description }}
-                                    </small>
                                 </div>
-
-                                <!-- Number fields -->
-                                <div *ngSwitchCase="'number'" class="form-group">
-                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
-                                        <span *ngIf="field.value.required" class="required">*</span>
-                                    </label>
-                                    <input [id]="'field-' + i" type="number" [ngModel]="getFieldValue(field.key)"
-                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
-                                        [required]="field.value.required" [min]="field.value.minimum"
-                                        [max]="field.value.maximum"
-                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
-                                    <small *ngIf="field.value.description" class="field-description">
-                                        {{ field.value.description }}
-                                    </small>
-                                    <small *ngIf="field.value.minimum || field.value.maximum" class="field-limits">
-                                        Range: {{ field.value.minimum || 'no limit' }} - {{ field.value.maximum || 'no
-                                        limit' }}
-                                    </small>
-                                </div>
-
-                                <!-- Boolean fields -->
-                                <div *ngSwitchCase="'boolean'" class="form-group">
-                                    <label>
-                                        <input type="checkbox" [ngModel]="getFieldValue(field.key)"
-                                            (ngModelChange)="updateDynamicConfig(field.key, $event)"
-                                            [name]="'field-' + i">
-                                        {{ getFieldLabel(field.key) }}
-                                        <span *ngIf="field.value.required" class="required">*</span>
-                                    </label>
-                                    <small *ngIf="field.value.description" class="field-description">
-                                        {{ field.value.description }}
-                                    </small>
-                                </div>
-
-                                <!-- Object fields (for complex nested configurations) -->
-                                <div *ngSwitchCase="'object'" class="form-group">
-                                    <!-- Special handling for params field (key-value format) -->
-                                    <div *ngIf="shouldUseKeyValueForm(field.key, 'object')"
-                                        class="params-key-value-section">
-                                        <label>{{ getFieldLabel(field.key) }}
-                                            <span *ngIf="field.value.required" class="required">*</span>
-                                        </label>
-                                        <small *ngIf="field.value.description" class="field-description">
-                                            {{ field.value.description }}
-                                        </small>
-
-                                        <app-key-value-form [items]="getObjectParamsAsKeyValueItems()"
-                                            (itemsChange)="updateObjectParamsFromKeyValueItems($event)"
-                                            [title]="'Parameters (Key-Value)'" [keyPlaceholder]="'Parameter name'"
-                                            [valuePlaceholder]="'Parameter value'" [keyLabel]="'Parameter'"
-                                            [valueLabel]="'Value'" [addButtonText]="'Add Parameter'"
-                                            [removeButtonText]="'Remove'" [showHeaders]="true"
-                                            [disabled]="isLoading()"></app-key-value-form>
-                                    </div>
-
-                                    <!-- Regular object fields -->
-                                    <div *ngIf="!shouldUseKeyValueForm(field.key, 'object')">
-                                        <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
-                                            <span *ngIf="field.value.required" class="required">*</span>
-                                        </label>
-                                        <textarea [id]="'field-' + i"
-                                            [ngModel]="formatObjectAsJson(getFieldValue(field.key))"
-                                            (ngModelChange)="updateObjectConfig(field.key, $event)"
-                                            [name]="'field-' + i" [required]="field.value.required" rows="3"
-                                            placeholder='{"key": "value"}'>
-                                        </textarea>
-                                        <small *ngIf="field.value.description" class="field-description">
-                                            {{ field.value.description }} (JSON format)
-                                        </small>
-                                    </div>
-                                </div>
-
-                                <!-- Array fields (for parameters and headers) -->
-                                <div *ngSwitchCase="'array'" class="form-group array-field">
-                                    <!-- Special handling for params field (key-value format) -->
-                                    <div *ngIf="isParamsField(field.key)" class="params-key-value-section">
-                                        <label>{{ getFieldLabel(field.key) }}
-                                            <span *ngIf="field.value.required" class="required">*</span>
-                                        </label>
-                                        <small *ngIf="field.value.description" class="field-description">
-                                            {{ field.value.description }}
-                                        </small>
-
-                                        <app-key-value-form [items]="getParamsAsKeyValueItems()"
-                                            (itemsChange)="updateParamsFromKeyValueItems($event)"
-                                            [title]="'Parameters (Key-Value)'" [keyPlaceholder]="'Parameter name'"
-                                            [valuePlaceholder]="'Parameter description'" [keyLabel]="'Parameter'"
-                                            [valueLabel]="'Description'" [addButtonText]="'Add Parameter'"
-                                            [removeButtonText]="'Remove'" [showHeaders]="true"
-                                            [disabled]="isLoading()"></app-key-value-form>
-                                    </div>
-
-                                    <!-- Regular array fields -->
-                                    <div *ngIf="!isParamsField(field.key)">
-                                        <label>{{ getFieldLabel(field.key) }}
-                                            <span *ngIf="field.value.required" class="required">*</span>
-                                        </label>
-                                        <small *ngIf="field.value.description" class="field-description">
-                                            {{ field.value.description }}
-                                        </small>
-
-                                        <!-- Array management UI -->
-                                        <div *ngIf="getFieldValue(field.key) && getFieldValue(field.key).length > 0"
-                                            class="array-items">
-                                            <div *ngFor="let item of getArrayItems(field.key); let j = index"
-                                                class="array-item">
-                                                <div *ngIf="isObjectArray(field.key)" class="array-object-item">
-                                                    <strong>{{ getObjectArrayDisplay(item) }}</strong>
-                                                    <button type="button" (click)="removeArrayItem(field.key, j)"
-                                                        class="btn btn-small btn-danger">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                                <div *ngIf="!isObjectArray(field.key)" class="array-primitive-item">
-                                                    <span>{{ item }}</span>
-                                                    <button type="button" (click)="removeArrayItem(field.key, j)"
-                                                        class="btn btn-small btn-danger">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Add new item form -->
-                                        <div *ngIf="isObjectArray(field.key)" class="add-array-item-form">
-                                            <h5>Add {{ getFieldLabel(field.key).slice(0, -1) }}</h5>
-                                            <div class="form-row">
-                                                <div class="form-group"
-                                                    *ngFor="let prop of getObjectArrayProperties(field.key)">
-                                                    <label [attr.for]="'new-' + field.key + '-' + prop">{{ prop |
-                                                        titlecase
-                                                        }}</label>
-                                                    <input [id]="'new-' + field.key + '-' + prop" type="text"
-                                                        [ngModel]="getNewArrayItemObject()[field.key]?.[prop]"
-                                                        (ngModelChange)="updateNewArrayItemObject(field.key, prop, $event)"
-                                                        [name]="'new-' + field.key + '-' + prop" [placeholder]="prop">
-                                                </div>
-                                            </div>
-                                            <button type="button" (click)="addArrayItem(field.key)"
-                                                class="btn btn-small btn-secondary">
-                                                <i class="fas fa-plus"></i> Add {{ getFieldLabel(field.key).slice(0, -1)
-                                                }}
-                                            </button>
-                                        </div>
-                                        <div *ngIf="!isObjectArray(field.key)" class="add-array-item-form">
-                                            <div class="form-row">
-                                                <div class="form-group">
-                                                    <label [attr.for]="'new-' + field.key">Value</label>
-                                                    <input [id]="'new-' + field.key" type="text"
-                                                        [ngModel]="getNewArrayItemValue()[field.key]"
-                                                        (ngModelChange)="updateNewArrayItemValue(field.key, $event)"
-                                                        [name]="'new-' + field.key" placeholder="Enter value">
-                                                </div>
-                                            </div>
-                                            <button type="button" (click)="addArrayItem(field.key)"
-                                                class="btn btn-small btn-secondary">
-                                                <i class="fas fa-plus"></i> Add {{ getFieldLabel(field.key).slice(0, -1)
-                                                }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Password fields (string with format: password) -->
-                                <div *ngSwitchCase="'password'" class="form-group">
-                                    <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
-                                        <span *ngIf="field.value.required" class="required">*</span>
-                                    </label>
-                                    <input [id]="'field-' + i" type="password" [ngModel]="getFieldValue(field.key)"
-                                        (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
-                                        [required]="field.value.required"
-                                        [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
-                                    <small *ngIf="field.value.description" class="field-description">
-                                        {{ field.value.description }}
-                                    </small>
-                                </div>
-
                             </div>
-                        </ng-container>
+
+                            <div class="form-group">
+                                <label for="toolDescription">Description</label>
+                                <textarea id="toolDescription" [(ngModel)]="formData().description" name="description"
+                                    placeholder="Describe what this tool does"></textarea>
+                            </div>
+
+                            <div class="form-group status-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" [(ngModel)]="formData().is_active" name="is_active">
+                                    <span>Active Tool</span>
+                                </label>
+                                <div *ngIf="isLoading()" class="loading-inline">
+                                    <i class="fas fa-spinner fa-spin"></i> Updating tool types...
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" [(ngModel)]="formData().is_active" name="is_active">
-                            Active
-                        </label>
+                    <!-- Tab 2: Recognition -->
+                    <div *ngIf="activeTab() === 'intent'" class="tab-pane">
+                        <div class="form-section">
+                            <h4>Intent Mapping</h4>
+
+                            <!-- Multi-Action Tools (git_tool, codebase_tool, etc.) -->
+                            <div *ngIf="supportsMultiIntent()">
+                                <div class="intent-actions-editor">
+                                    <div class="info-banner">
+                                        <i class="fas fa-layer-group"></i>
+                                        <strong>Multi-Action Tool</strong>
+                                        <p>This tool supports multiple actions. Click any action to configure its intent examples and parameters.</p>
+                                    </div>
+
+                                    <!-- Actions List & Editor -->
+                                    <div class="actions-editor">
+                                        <div class="actions-list">
+                                            <h5>Available Actions</h5>
+
+                                            <!-- All Actions in Single Clickable List -->
+                                            <div class="actions-clickable-list">
+                                                <div *ngFor="let action of availableActions()"
+                                                     class="action-clickable-item"
+                                                     [class.selected]="selectedAction() === action.name"
+                                                     [class.has-examples]="(getIntentActions()[action.name]?.examples || []).length > 0"
+                                                     (click)="selectAndEnableAction(action.name)">
+
+                                                    <!-- Action Header -->
+                                                    <div class="action-header">
+                                                        <div class="action-basic-info">
+                                                            <strong>{{ action.name | titlecase }}</strong>
+                                                            <div class="action-badges">
+                                                                <span class="badge configured" *ngIf="(getIntentActions()[action.name]?.examples || []).length > 0">
+                                                                    <i class="fas fa-comments"></i> {{ (getIntentActions()[action.name]?.examples || []).length }} examples
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="action-arrow">
+                                                            <i class="fas" [class.fa-chevron-down]="selectedAction() === action.name" [class.fa-chevron-right]="selectedAction() !== action.name"></i>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Description -->
+                                                    <div class="action-description">
+                                                        {{ action.description }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Action Details Editor -->
+                                        <div class="action-details" *ngIf="selectedAction()">
+                                            <h6>Configure: {{ selectedAction() | titlecase }}</h6>
+
+                                            <!-- Parameters -->
+                                            <div class="action-params">
+                                                <label>Parameters (JSON)</label>
+                                                <textarea
+                                                    [ngModel]="getIntentActions()[selectedAction()]?.default_params | json"
+                                                    (ngModelChange)="updateActionParams(selectedAction(), $event)"
+                                                    rows="3"
+                                                    placeholder='{"action": "list_repositories"}'
+                                                    name="actionParams">
+                                                </textarea>
+                                            </div>
+
+                                            <!-- Examples -->
+                                            <div class="action-examples-editor">
+                                                <label>Intent Examples</label>
+
+                                                <!-- Add Example -->
+                                                <div class="add-example-form">
+                                                    <input type="text" [ngModel]="newActionExample()" (ngModelChange)="newActionExample.set($event)"
+                                                           placeholder="Add an example phrase" name="newActionExample"
+                                                           (keyup.enter)="addActionExample()">
+                                                    <button type="button" (click)="addActionExample()" class="btn btn-secondary btn-small"
+                                                            [disabled]="!newActionExample().trim()">
+                                                        Add
+                                                    </button>
+                                                </div>
+
+                                                <!-- Examples List -->
+                                                <div class="examples-list" *ngIf="getIntentActions()[selectedAction()]?.examples?.length">
+                                                    <div *ngFor="let example of getIntentActions()[selectedAction()].examples; let i = index"
+                                                         class="example-item">
+                                                        <span>{{ example }}</span>
+                                                        <button type="button" (click)="removeActionExample(selectedAction(), i)"
+                                                                class="btn-remove-example">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Legacy Single-Action Tools (with intent_examples) -->
+                            <div *ngIf="!supportsMultiIntent()">
+                                <p class="section-help">Add phrases that help the system understand when to trigger this tool.</p>
+
+                                <div class="form-group">
+                                    <label>Intent Examples</label>
+                                    <div class="intent-examples-container">
+                                        <div *ngIf="formData().intent_examples?.length === 0" class="empty-list-hint">
+                                            No examples added. Add common user phrases.
+                                        </div>
+                                        <div class="intent-list" *ngIf="formData().intent_examples && formData().intent_examples!.length > 0">
+                                            <div *ngFor="let ex of formData().intent_examples; let i = index" class="intent-item">
+                                                <span>{{ ex }}</span>
+                                                <button type="button" (click)="removeIntentExample(i)" class="btn-remove-intent">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="intent-input-group">
+                                            <input type="text" [ngModel]="newIntentExample()" (ngModelChange)="newIntentExample.set($event)"
+                                                name="newIntentExample" placeholder="Add a phrase and press Enter"
+                                                (keyup.enter)="addIntentExample()">
+                                            <button type="button" (click)="addIntentExample()" class="btn btn-secondary btn-small">
+                                                Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="contentPrompt">Response Persona / Formatting (Optional)</label>
+                                <textarea id="contentPrompt" [(ngModel)]="formData().content_prompt" name="content_prompt"
+                                    placeholder="e.g., 'Present the results in a professional table' or 'Explain as a technical expert'"
+                                    rows="4"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Configuration -->
+                     <div *ngIf="activeTab() === 'config'" class="tab-pane">
+                         <div class="form-section">
+
+                             <!-- Git Provider selector (ANTES de la tarjeta OAuth) -->
+                             <div class="form-group" *ngIf="selectedToolType() === 'git_tool'">
+                                 <label for="gitProvider">Git Provider *</label>
+                                 <select
+                                     id="gitProvider"
+                                     [ngModel]="selectedProvider()"
+                                     (ngModelChange)="selectedProvider.set($event); syncProviderToConfig($event)"
+                                     name="gitProvider"
+                                     [disabled]="isLoading()"
+                                     class="git-provider-select">
+                                     <option value="github">GitHub</option>
+                                     <option value="gitlab">GitLab</option>
+                                     <option value="bitbucket">Bitbucket</option>
+                                 </select>
+                                 <small class="field-description">
+                                     Selecciona el proveedor de Git para esta integración.
+                                     Solo Bitbucket tiene soporte de OAuth por ahora.
+                                 </small>
+                             </div>
+
+                             <!-- ═══ Git Provider OAuth Block (solo Bitbucket, COMPACTO) ═══ -->
+                             <!-- Compacta: aparece solo cuando selectedProvider === 'bitbucket' -->
+                             <div *ngIf="selectedToolType() === 'git_tool' && selectedProvider() === 'bitbucket'" class="integration-card oauth-compact">
+
+                                 <!-- Header -->
+                                 <div class="integration-header">
+                                     <div class="integration-info">
+                                         <div class="integration-logo">
+                                             <i class="icon-git-branch"></i>
+                                         </div>
+                                         <div>
+                                             <h4>Bitbucket</h4>
+                                             <p class="integration-description">
+                                                 Conecta tu cuenta de Bitbucket para habilitar comandos de git y navegación de repositorios privados.
+                                             </p>
+                                         </div>
+                                     </div>
+                                     <span class="integration-badge" [class.connected]="providerConnected()" [class.checking]="providerChecking()">
+                                         <span *ngIf="providerChecking()" class="loader-inline"></span>
+                                         <span *ngIf="!providerChecking()">{{ providerConnected() ? 'Conectado' : 'No Conectado' }}</span>
+                                     </span>
+                                 </div>
+
+                                 <!-- Body -->
+                                 <div class="integration-body">
+
+                                     <!-- Mensaje de estado -->
+                                     <p class="connection-status-text" *ngIf="!providerConnected() && !providerChecking()">
+                                         Conéctate con tu cuenta de Bitbucket para habilitar comandos de git y navegación de repositorios privados.
+                                     </p>
+                                     <p class="connection-status-text" *ngIf="providerChecking()">
+                                         Comprobando el estado de tu cuenta de Bitbucket...
+                                     </p>
+
+                                     <!-- Detalles de conexión (cuando está conectado) -->
+                                     <div class="connection-details" *ngIf="providerConnected() && !providerChecking()">
+                                         <div class="detail-row">
+                                             <span class="detail-label">Usuario Local:</span>
+                                             <span class="detail-value">default@example.com</span>
+                                         </div>
+                                         <div class="detail-row">
+                                             <span class="detail-label">Proveedor:</span>
+                                             <span class="detail-value">bitbucket.org</span>
+                                         </div>
+                                     </div>
+                                 </div>
+
+                                 <!-- Actions -->
+                                 <div class="integration-actions">
+                                     <button type="button" class="btn-primary"
+                                         *ngIf="!providerConnected() && !providerChecking()"
+                                         (click)="connectProvider()"
+                                         [disabled]="providerChecking()">
+                                         <i class="fas fa-link"></i>
+                                         Conectar Cuenta
+                                     </button>
+                                     <button type="button" class="btn-danger"
+                                         *ngIf="providerConnected() && !providerChecking()"
+                                         (click)="connectProvider()"
+                                         [disabled]="providerChecking()">
+                                         <i class="fas fa-sync-alt"></i>
+                                         Reconectar
+                                     </button>
+                                 </div>
+                             </div>
+                             <!-- ════════════════════════════════════════════════════════════════ -->
+
+                            <!-- Dynamic configuration fields based on config_schema -->
+                            <div *ngIf="getCurrentToolSchema()" class="dynamic-config-section">
+                                <div class="config-header">
+                                    <h4>Tool Configuration</h4>
+                                    <span class="tool-type-badge">{{ getToolTypeDisplayName(selectedToolType()) }}</span>
+                                </div>
+
+                                <ng-container *ngFor="let field of getSchemaFields(); let i = index">
+                                    <div [ngSwitch]="getFieldType(field.key)"
+                                        [class]="'dynamic-field field-' + getFieldType(field.key) + ' field-key-' + field.key"
+                                        [class.field-object]="getFieldType(field.key) === 'object'"
+                                        [class.field-array]="getFieldType(field.key) === 'array'"
+                                        [class.field-password]="getFieldType(field.key) === 'password'">
+
+                                        <!-- String fields -->
+                                        <div *ngSwitchCase="'string'" class="form-group">
+                                            <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+                                            <input [id]="'field-' + i" type="text" [ngModel]="getFieldValue(field.key)"
+                                                (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                                [required]="field.value.required"
+                                                [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                            <small *ngIf="field.value.description" class="field-description">
+                                                {{ field.value.description }}
+                                            </small>
+                                        </div>
+
+                                        <!-- String fields with enum (select) -->
+                                        <div *ngSwitchCase="'string_enum'" class="form-group">
+                                            <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+                                            <select [id]="'field-' + i" [ngModel]="getFieldValue(field.key)"
+                                                (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                                [required]="field.value.required">
+                                                <option *ngFor="let option of field.value.enum" [value]="option">
+                                                    {{ option }}
+                                                </option>
+                                            </select>
+                                            <small *ngIf="field.value.description" class="field-description">
+                                                {{ field.value.description }}
+                                            </small>
+                                        </div>
+
+                                        <!-- Number fields -->
+                                        <div *ngSwitchCase="'number'" class="form-group">
+                                            <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+                                            <input [id]="'field-' + i" type="number" [ngModel]="getFieldValue(field.key)"
+                                                (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                                [required]="field.value.required" [min]="field.value.minimum"
+                                                [max]="field.value.maximum"
+                                                [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                            <small *ngIf="field.value.description" class="field-description">
+                                                {{ field.value.description }}
+                                            </small>
+                                        </div>
+
+                                        <!-- Boolean fields -->
+                                        <div *ngSwitchCase="'boolean'" class="form-group">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" [ngModel]="getFieldValue(field.key)"
+                                                    (ngModelChange)="updateDynamicConfig(field.key, $event)"
+                                                    [name]="'field-' + i">
+                                                <span>{{ getFieldLabel(field.key) }}</span>
+                                            </label>
+                                            <small *ngIf="field.value.description" class="field-description">
+                                                {{ field.value.description }}
+                                            </small>
+                                        </div>
+
+                                        <!-- Object fields (for complex nested configurations) -->
+                                        <div *ngSwitchCase="'object'" class="form-group">
+                                            <label>{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+
+                                            <!-- Key-Value Editor for params, headers, etc. -->
+                                            <div *ngIf="isKeyValueField(field.key)" class="key-value-editor">
+                                                <div *ngIf="getObjectEntries(field.key).length > 0" class="kv-list">
+                                                        <div *ngFor="let entry of getObjectEntries(field.key)" class="kv-item">
+                                                            <div class="kv-key">{{ entry[0] }}</div>
+                                                            <div class="kv-value">{{ entry[1] }}</div>
+                                                            <div class="kv-actions">
+                                                                <button type="button" (click)="editKeyValuePair(field.key, entry[0], entry[1])"
+                                                                    class="kv-btn-icon kv-edit" title="Edit">
+                                                                    <i class="fas fa-edit"></i> Edit
+                                                                </button>
+                                                                <button type="button" (click)="removeKeyValuePair(field.key, entry[0])"
+                                                                    class="kv-btn-icon kv-remove" title="Remove">
+                                                                    <i class="fas fa-trash"></i> Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                </div>
+                                                
+                                                <div *ngIf="getObjectEntries(field.key).length === 0" class="kv-empty">
+                                                    No {{ getFieldLabel(field.key).toLowerCase() }} added yet
+                                                </div>
+
+                                                <div class="kv-add-form">
+                                                    <div class="kv-inputs">
+                                                        <input type="text" [ngModel]="getNewKey(field.key)" (ngModelChange)="updateNewKey(field.key, $event)" 
+                                                            [name]="'kv-key-' + field.key" placeholder="Key" class="kv-input-key">
+                                                        <input type="text" [ngModel]="getNewValue(field.key)" (ngModelChange)="updateNewValue(field.key, $event)" 
+                                                            [name]="'kv-value-' + field.key" placeholder="Value" class="kv-input-value">
+                                                        <button type="button" (click)="addKeyValuePair(field.key)" [disabled]="!getNewKey(field.key)">
+                                                            <i class="fas fa-plus"></i> Add
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Regular JSON editor for other object fields -->
+                                            <div *ngIf="!isKeyValueField(field.key)">
+                                                <textarea [ngModel]="formatObjectAsJson(getFieldValue(field.key))"
+                                                    (ngModelChange)="updateObjectConfig(field.key, $event)" [name]="'field-' + i" rows="2"
+                                                    placeholder='{"key": "value"}'>
+                                                </textarea>
+                                                <small *ngIf="field.value.description" class="field-description">
+                                                    {{ field.value.description }} (JSON format)
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Array fields (for parameters and headers) -->
+                                        <div *ngSwitchCase="'array'" class="form-group array-field">
+                                            <label>{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+                                            <small *ngIf="field.value.description" class="field-description">
+                                                {{ field.value.description }}
+                                            </small>
+
+                                            <!-- Array management UI -->
+                                            <div class="array-manager">
+                                                <div *ngIf="getArrayItems(field.key).length > 0" class="array-items">
+                                                    <div *ngFor="let item of getArrayItems(field.key); let j = index" class="array-item-tag">
+                                                        <div *ngIf="isObjectArray(field.key)" class="array-object-item">
+                                                            <strong>{{ getObjectArrayDisplay(item) }}</strong>
+                                                        </div>
+                                                        <div *ngIf="!isObjectArray(field.key)" class="array-primitive-item">
+                                                            <span>{{ item }}</span>
+                                                        </div>
+                                                        <div class="kv-actions">
+                                                            <button type="button" (click)="removeArrayItem(field.key, j)" class="kv-btn-icon kv-remove" title="Remove">
+                                                                <i class="fas fa-trash"></i> Delete
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Add new item form -->
+                                                <div *ngIf="isObjectArray(field.key)" class="add-array-item-form">
+                                                    <p class="add-item-title">Add {{ getFieldLabel(field.key).slice(0, -1) }}</p>
+                                                    <div class="form-row">
+                                                        <div class="form-group-sub" *ngFor="let prop of getObjectArrayProperties(field.key)">
+                                                            <label>{{ prop | titlecase }}</label>
+                                                            <input type="text" [ngModel]="getNewArrayItemObject()[selectedToolType()]?.[prop]"
+                                                                (ngModelChange)="updateNewArrayItemObject(field.key, prop, $event)"
+                                                                [placeholder]="prop">
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" (click)="addArrayItem(field.key)" class="btn-add-item">
+                                                        <i class="fas fa-plus"></i> Add
+                                                    </button>
+                                                </div>
+
+                                                <div *ngIf="!isObjectArray(field.key)" class="array-add">
+                                                    <input type="text" [ngModel]="getNewArrayItemValue()[selectedToolType()]" 
+                                                        (ngModelChange)="updateNewArrayItemValue(field.key, $event)" placeholder="New item...">
+                                                    <button type="button" (click)="addArrayItem(field.key)">
+                                                        <i class="fas fa-plus"></i> Add
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Password fields -->
+                                        <div *ngSwitchCase="'password'" class="form-group">
+                                            <label [attr.for]="'field-' + i">{{ getFieldLabel(field.key) }}
+                                                <span *ngIf="field.value.required" class="required">*</span>
+                                            </label>
+                                            <input [id]="'field-' + i" type="password" [ngModel]="getFieldValue(field.key)"
+                                                (ngModelChange)="updateDynamicConfig(field.key, $event)" [name]="'field-' + i"
+                                                [required]="field.value.required"
+                                                [placeholder]="field.value.description || ('Enter ' + getFieldLabel(field.key).toLowerCase())">
+                                        </div>
+
+                                    </div>
+                                </ng-container>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Form Actions -->
+                <!-- Form Actions (Always visible) -->
                 <div class="form-actions">
                     <button type="button" (click)="cancelForm()" class="btn btn-secondary">
                         Cancel

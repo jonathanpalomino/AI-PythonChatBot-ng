@@ -102,8 +102,8 @@
                 <div class="variables-list">
                     <div class="variable-item" *ngFor="let variable of formData.variables; let i = index">
                         <div class="variable-header">
-                            <span class="variable-name">{{ variable.name }}</span>
-                            <span class="variable-type badge">{{ variable.type }}</span>
+                            <span class="variable-name">{{ variable['name'] }}</span>
+                            <span class="variable-type badge">{{ variable['type'] }}</span>
                             <button class="btn-icon danger" (click)="removeVariable(i)">
                                 <i class="icon-trash"></i>
                             </button>
@@ -111,16 +111,16 @@
                         <div class="variable-details">
                             <div class="detail-row">
                                 <label>Descripción:</label>
-                                <input type="text" [(ngModel)]="variable.description"
+                                <input type="text" [(ngModel)]="variable['description']"
                                     placeholder="Descripción para el usuario" />
                             </div>
                             <div class="detail-row">
                                 <label>Default:</label>
-                                <input type="text" [(ngModel)]="variable.default" placeholder="Valor por defecto" />
+                                <input type="text" [(ngModel)]="variable['default']" placeholder="Valor por defecto" />
                             </div>
                             <div class="detail-row checkbox">
                                 <label>
-                                    <input type="checkbox" [(ngModel)]="variable.required" />
+                                    <input type="checkbox" [(ngModel)]="variable['required']" />
                                     Requerido
                                 </label>
                             </div>
@@ -172,10 +172,10 @@
                         <label class="section-label">Proveedor de IA Recomendado</label>
                         <div class="provider-grid-compact">
                             <label *ngFor="let provider of providers" class="provider-card-compact"
-                                [class.selected]="formData.settings?.recommended_provider === provider.value"
+                                [class.selected]="formData.settings?.['recommended_provider'] === provider.value"
                                 [class.disabled]="!provider.isAvailable">
                                 <input type="radio" name="recommended_provider"
-                                    [(ngModel)]="formData.settings!.recommended_provider" [value]="provider.value"
+                                    [(ngModel)]="formData.settings!['recommended_provider']" [value]="provider.value"
                                     [disabled]="!provider.isAvailable" style="display: none;">
                                 <span class="provider-icon-sm">{{ provider.icon }}</span>
                                 <span class="provider-label-sm">{{ provider.label }}</span>
@@ -185,7 +185,7 @@
 
                     <div class="form-group">
                         <label class="section-label">Modelo Recomendado</label>
-                        <select [(ngModel)]="formData.settings!.recommended_model" class="form-select">
+                        <select [(ngModel)]="formData.settings!['recommended_model']" class="form-select">
                             <option value="" disabled>Selecciona un modelo</option>
                             <option *ngFor="let model of getAvailableModels()" [value]="model">
                                 {{ model }}
@@ -194,18 +194,18 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Temperatura: {{ formData.settings?.temperature }}</label>
-                        <input type="range" [(ngModel)]="formData.settings!.temperature" min="0" max="2" step="0.1" />
+                        <label>Temperatura: {{ formData.settings?.['temperature'] }}</label>
+                        <input type="range" [(ngModel)]="formData.settings!['temperature']" min="0" max="2" step="0.1" />
                     </div>
 
                     <div class="form-group">
                         <label>Max Tokens</label>
-                        <input type="number" [(ngModel)]="formData.settings!.max_tokens" />
+                        <input type="number" [(ngModel)]="formData.settings!['max_tokens']" />
                     </div>
 
                     <div class="form-group">
                         <label>Top P</label>
-                        <input type="number" [(ngModel)]="formData.settings!.top_p" step="0.1" min="0" max="1" />
+                        <input type="number" [(ngModel)]="formData.settings!['top_p']" step="0.1" min="0" max="1" />
                     </div>
                 </div>
             </div>

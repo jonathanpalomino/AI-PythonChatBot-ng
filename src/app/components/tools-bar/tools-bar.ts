@@ -62,9 +62,13 @@ export class ToolsBarComponent {
         return this.toolMetadata[name]?.label || name;
     }
 
+    getCollectionIdentifier(collection: QdrantCollection): string {
+        return collection.id || collection.name;
+    }
+
     getCollectionBadgeText(): string {
         if (this.hasTemporaryCollection) return 'Temporal';
-        const found = this.availableCollections.find(c => c.id === this.selectedCollectionId);
+        const found = this.availableCollections.find(c => this.getCollectionIdentifier(c) === this.selectedCollectionId);
         return found ? found.display_name : 'Seleccionar...';
     }
 

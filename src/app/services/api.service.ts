@@ -1,4 +1,5 @@
 // src/app/services/api.service.ts
+// Synced with OpenAPI spec from http://localhost:8001/api/v1/docs
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
@@ -9,12 +10,17 @@ import {
   Conversation,
   ConversationListItem,
   ConversationCreate,
+  ConversationUpdate,
   Message,
   ChatRequest,
   ChatResponse,
   PromptTemplate,
+  PromptTemplateCreate,
+  PromptTemplateUpdate,
   QdrantCollection,
   ToolConfiguration,
+  ToolConfigurationCreate,
+  ToolConfigurationUpdate,
   ListResponse,
   FileAttachment,
   ProvidersResponse,
@@ -23,7 +29,12 @@ import {
   CustomToolCreate,
   CustomToolUpdate,
   HealthCheck,
-  UploadProgress
+  UploadProgress,
+  QdrantCollectionCreate,
+  QdrantCollectionUpdate,
+  FolderIngestRequest,
+  IngestionStats,
+  OAuthStatus
 } from '../models/models';
 
 
@@ -77,7 +88,7 @@ export class ApiService extends BaseService {
       );
   }
 
-  updateConversation(id: string, data: Partial<Conversation>): Observable<Conversation> {
+  updateConversation(id: string, data: ConversationUpdate): Observable<Conversation> {
     return this.http.patch<Conversation>(`${this.baseUrl}/conversations/${id}`, data)
       .pipe(
         tap(() => this.log('Updated conversation:', id)),
@@ -123,12 +134,11 @@ export class ApiService extends BaseService {
    */
   async streamChat(
     conversationId: string,
-    message: string,
-    fileIds?: string[],
+    request: ChatRequest,
     abortSignal?: AbortSignal
   ): Promise<ReadableStream<string>> {
     const url = `${this.baseUrl}/conversations/${conversationId}/chat/stream`;
-    this.log('Starting streaming chat:', { conversationId, message });
+    this.log('Starting streaming chat:', { conversationId, message: request.message });
 
     const fetchOptions: RequestInit = {
       method: 'POST',
@@ -136,10 +146,7 @@ export class ApiService extends BaseService {
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream'
       },
-      body: JSON.stringify({
-        message,
-        file_ids: fileIds || []
-      })
+      body: JSON.stringify(request)
     };
 
     // Add abort signal if provided
@@ -278,14 +285,26 @@ export class ApiService extends BaseService {
     );
   }
 
-  cancelChat(conversationId: string): Observable<void> {
-    return this.http.post<void>(
+  cancelChat(conversationId: string): Observable<Record<string, any>> {
+    return this.http.post<Record<string, any>>(
       `${this.baseUrl}/conversations/${conversationId}/chat/cancel`,
       {}
     ).pipe(
       tap(() => this.log('Cancelled chat:', conversationId)),
       catchError(this.handleError.bind(this))
     );
+  }
+
+  /**
+   * Quick chat without existing conversation (creates a temporary one)
+   * POST /api/v1/conversations/chat
+   */
+  quickChat(request: ChatRequest): Observable<ChatResponse> {
+    return this.http.post<ChatResponse>(`${this.baseUrl}/conversations/chat`, request)
+      .pipe(
+        tap(response => this.log('Quick chat response received')),
+        catchError(this.handleError.bind(this))
+      );
   }
 
   exportConversationPdf(conversationId: string): Observable<Blob> {
@@ -323,14 +342,15 @@ export class ApiService extends BaseService {
       .pipe(catchError(this.handleError.bind(this)));
   }
 
-  createPromptTemplate(data: Partial<PromptTemplate>): Observable<PromptTemplate> {
+  createPromptTemplate(data: PromptTemplateCreate): Observable<PromptTemplate> {
     return this.http.post<PromptTemplate>(`${this.baseUrl}/prompts`, data)
       .pipe(
         tap(prompt => this.log('Created prompt:', prompt.id)),
         catchError(this.handleError.bind(this))
       );
   }
-  updatePromptTemplate(id: string, data: Partial<PromptTemplate>): Observable<PromptTemplate> {
+
+  updatePromptTemplate(id: string, data: PromptTemplateUpdate): Observable<PromptTemplate> {
     return this.http.put<PromptTemplate>(`${this.baseUrl}/prompts/${id}`, data)
       .pipe(
         tap(prompt => this.log('Updated prompt:', prompt.id)),
@@ -378,6 +398,32 @@ export class ApiService extends BaseService {
       .pipe(catchError(this.handleError.bind(this)));
   }
 
+  createCollection(data: QdrantCollectionCreate, createInQdrant: boolean = true): Observable<QdrantCollection> {
+    return this.http.post<QdrantCollection>(`${this.baseUrl}/collections`, data, {
+      params: { create_in_qdrant: createInQdrant.toString() }
+    }).pipe(
+      tap(col => this.log('Created collection:', col.id)),
+      catchError(this.handleError.bind(this))
+    );
+  }
+
+  updateCollection(id: string, data: QdrantCollectionUpdate): Observable<QdrantCollection> {
+    return this.http.patch<QdrantCollection>(`${this.baseUrl}/collections/${id}`, data)
+      .pipe(
+        tap(() => this.log('Updated collection:', id)),
+        catchError(this.handleError.bind(this))
+      );
+  }
+
+  deleteCollection(id: string, deleteFromQdrant: boolean = false): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/collections/${id}`, {
+      params: { delete_from_qdrant: deleteFromQdrant.toString() }
+    }).pipe(
+      tap(() => this.log('Deleted collection:', id)),
+      catchError(this.handleError.bind(this))
+    );
+  }
+
   getCollectionCategories(): Observable<string[]> {
     return this.http.get<string[]>(`${this.baseUrl}/collections/categories`)
       .pipe(catchError(this.handleError.bind(this)));
@@ -404,6 +450,38 @@ export class ApiService extends BaseService {
         score_threshold: scoreThreshold.toString()
       }
     }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  // Files Collections Ingestion
+  ingestFolder(collectionId: string, data: FolderIngestRequest): Observable<IngestionStats> {
+    return this.http.post<IngestionStats>(`${this.baseUrl}/collections/${collectionId}/ingest/folder`, data)
+      .pipe(
+        tap(stats => this.log('Folder ingestion completed:', stats.processed)),
+        catchError(this.handleError.bind(this))
+      );
+  }
+
+  ingestUpload(collectionId: string, files: File[], embeddingModel?: string): Observable<IngestionStats> {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    if (embeddingModel) {
+      formData.append('embedding_model', embeddingModel);
+    }
+
+    return this.http.post<IngestionStats>(`${this.baseUrl}/collections/${collectionId}/ingest/upload`, formData)
+      .pipe(
+        tap(stats => this.log('Upload ingestion completed:', stats.processed)),
+        catchError(this.handleError.bind(this))
+      );
+  }
+
+  /**
+   * Get the status of a long-running ingestion job
+   * GET /api/v1/collections/{collection_id}/ingest/status/{job_id}
+   */
+  getIngestStatus(collectionId: string, jobId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/collections/${collectionId}/ingest/status/${jobId}`)
+      .pipe(catchError(this.handleError.bind(this)));
   }
 
   // ============================================================================
@@ -436,6 +514,17 @@ export class ApiService extends BaseService {
       .pipe(catchError(this.handleError.bind(this)));
   }
 
+  /**
+   * List available tools based on execution mode ('manual' | 'agent')
+   * GET /api/v1/tools/by-mode/{mode}
+   */
+  getToolsByMode(mode: 'manual' | 'agent', conversationId?: string): Observable<any> {
+    let params: any = {};
+    if (conversationId) params.conversation_id = conversationId;
+    return this.http.get<any>(`${this.baseUrl}/tools/by-mode/${mode}`, { params })
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
   getToolConfigurations(conversationId: string, activeOnly = true): Observable<ToolConfiguration[]> {
     return this.http.get<ToolConfiguration[]>(
       `${this.baseUrl}/tools/configurations/conversation/${conversationId}`,
@@ -443,7 +532,7 @@ export class ApiService extends BaseService {
     ).pipe(catchError(this.handleError.bind(this)));
   }
 
-  createToolConfiguration(data: Partial<ToolConfiguration>): Observable<ToolConfiguration> {
+  createToolConfiguration(data: ToolConfigurationCreate): Observable<ToolConfiguration> {
     return this.http.post<ToolConfiguration>(`${this.baseUrl}/tools/configurations`, data)
       .pipe(
         tap(config => this.log('Created tool config:', config.id)),
@@ -453,7 +542,7 @@ export class ApiService extends BaseService {
 
   updateToolConfiguration(
     id: string,
-    data: Partial<ToolConfiguration>
+    data: ToolConfigurationUpdate
   ): Observable<ToolConfiguration> {
     return this.http.patch<ToolConfiguration>(
       `${this.baseUrl}/tools/configurations/${id}`,
@@ -472,28 +561,40 @@ export class ApiService extends BaseService {
       );
   }
 
+  /**
+   * Bulk create tool configurations
+   * POST /api/v1/tools/configurations/bulk
+   */
   bulkCreateToolConfigurations(
     conversationId: string,
     toolNames: string[],
-    defaultConfigs?: Record<string, any>
+    defaultConfigs?: Record<string, any> | null
   ): Observable<ToolConfiguration[]> {
-    const url = `${this.baseUrl}/tools/configurations/conversation/${conversationId}/bulk`;
+    // Correct endpoint: /api/v1/tools/configurations/bulk
+    const url = `${this.baseUrl}/tools/configurations/bulk`;
 
-    return this.http.post<ToolConfiguration[]>(
-      url,
-      { tool_names: toolNames, default_configs: defaultConfigs }
-    ).pipe(
+    return this.http.post<ToolConfiguration[]>(url, defaultConfigs ?? null, {
+      params: {
+        conversation_id: conversationId,
+        tool_names: toolNames
+      }
+    }).pipe(
       tap(configs => this.log('Created bulk tool configs:', configs.length)),
       catchError(this.handleError.bind(this))
     );
   }
 
-  executeToolTest(toolName: string, parameters: Record<string, any>): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/tools/execute/${toolName}`, parameters)
-      .pipe(
-        tap(() => this.log('Executed tool test:', toolName)),
-        catchError(this.handleError.bind(this))
-      );
+  /**
+   * Execute a tool with given parameters (for testing/debugging)
+   * POST /api/v1/tools/execute?tool_name={toolName}
+   */
+  executeToolTest(toolName: string, parameters: Record<string, any> = {}): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/tools/execute`, parameters, {
+      params: { tool_name: toolName }
+    }).pipe(
+      tap(() => this.log('Executed tool test:', toolName)),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   // ============================================================================
@@ -574,6 +675,15 @@ export class ApiService extends BaseService {
       .pipe(catchError(this.handleError.bind(this)));
   }
 
+  /**
+   * Get detailed processing status for a file
+   * GET /api/v1/files/{file_id}/status
+   */
+  getFileProcessingStatus(fileId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/files/${fileId}/status`)
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
   uploadFiles(files: File[], conversationId?: string, projectId?: string): Observable<FileAttachment[]> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
@@ -619,6 +729,21 @@ export class ApiService extends BaseService {
 
   downloadFile(fileId: string): string {
     return `${this.baseUrl}/files/${fileId}/download`;
+  }
+
+  /**
+   * Batch delete multiple files
+   * DELETE /api/v1/files/batch/delete
+   * Note: sends file IDs in the request body
+   */
+  batchDeleteFiles(fileIds: string[], deleteFromDisk = true): Observable<void> {
+    return this.http.request<void>('DELETE', `${this.baseUrl}/files/batch/delete`, {
+      body: fileIds,
+      params: { delete_from_disk: deleteFromDisk.toString() }
+    }).pipe(
+      tap(() => this.log('Batch deleted files:', fileIds.length)),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   deleteFile(fileId: string, deleteFromDisk = true): Observable<void> {
@@ -677,5 +802,23 @@ export class ApiService extends BaseService {
     }
 
     return normalized;
+  }
+
+  // ============================================================================
+  // OAuth Bitbucket
+  // ============================================================================
+
+  getBitbucketStatus(): Observable<OAuthStatus> {
+    return this.http.get<OAuthStatus>(`${this.baseUrl}/oauth/bitbucket/status`)
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  revokeBitbucket(): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/oauth/bitbucket/revoke`, {})
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  getBitbucketAuthorizeUrl(): string {
+    return `${this.baseUrl}/oauth/bitbucket/authorize`;
   }
 }

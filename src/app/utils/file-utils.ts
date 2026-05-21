@@ -29,4 +29,15 @@ export class FileUtils {
         };
         return iconMap[ext] || 'icon-file';
     }
+
+    static isCodeFile(fileName: string | undefined | null): boolean {
+        if (!fileName) return false;
+        const ext = fileName.split('.').pop()?.toLowerCase() || '';
+        const codeExtensions = [
+            'js', 'ts', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs',
+            'go', 'rs', 'php', 'rb', 'sql', 'html', 'css', 'sh',
+            'kt', 'swift', 'scala', 'hs', 'lua', 'pl', 'pm', 'bat'
+        ];
+        return codeExtensions.includes(ext);
+    }
 }

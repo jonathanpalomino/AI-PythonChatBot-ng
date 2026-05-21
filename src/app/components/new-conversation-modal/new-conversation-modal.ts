@@ -76,7 +76,7 @@ export class NewConversationModal implements OnInit, OnDestroy {
       provider: ['local', Validators.required],
       model: ['mistral', Validators.required],
       temperature: [0.7, [Validators.required, Validators.min(0), Validators.max(2)]],
-      maxTokens: [2000, [Validators.min(100), Validators.max(8000)]],
+      maxTokens: [null],
       toolMode: ['manual', Validators.required],
       enabledTools: [[]],
       hallucinationMode: ['balanced', Validators.required],
@@ -129,26 +129,26 @@ export class NewConversationModal implements OnInit, OnDestroy {
     };
 
     // Apply basic settings first
-    if (prompt.settings?.temperature !== undefined) {
-      updates.temperature = prompt.settings.temperature;
+    if (prompt.settings?.['temperature'] !== undefined) {
+      updates.temperature = prompt.settings['temperature'];
     }
-    if (prompt.settings?.max_tokens) {
-      updates.maxTokens = prompt.settings.max_tokens;
+    if (prompt.settings?.['max_tokens']) {
+      updates.maxTokens = prompt.settings['max_tokens'];
     }
-    if (prompt.settings?.hallucination_mode) {
-      updates.hallucinationMode = prompt.settings.hallucination_mode;
+    if (prompt.settings?.['hallucination_mode']) {
+      updates.hallucinationMode = prompt.settings['hallucination_mode'];
     }
 
     // Apply tools with validation
-    if (prompt.settings?.default_tools) {
-      const validTools = prompt.settings.default_tools.filter(toolName =>
+    if (prompt.settings?.['default_tools']) {
+      const validTools = prompt.settings['default_tools'].filter((toolName: string) =>
         this.availableTools.some(t => t.name === toolName)
       );
       updates.enabledTools = validTools;
     }
 
     // ✨ NEW: Determine filtering based on prompt requirements
-    this.filterByTools = !!(prompt.settings?.default_tools && prompt.settings.default_tools.length > 0);
+    this.filterByTools = !!(prompt.settings?.['default_tools'] && prompt.settings['default_tools'].length > 0);
 
     const nameLC = prompt.name.toLowerCase();
     this.filterByThinking = nameLC.includes('código') || nameLC.includes('code') ||
@@ -157,12 +157,12 @@ export class NewConversationModal implements OnInit, OnDestroy {
     this.conversationForm.patchValue(updates);
 
     // Apply provider and model sequentially to avoid race conditions
-    if (prompt.settings?.recommended_provider) {
-      this.conversationForm.patchValue({ provider: prompt.settings.recommended_provider });
+    if (prompt.settings?.['recommended_provider']) {
+      this.conversationForm.patchValue({ provider: prompt.settings['recommended_provider'] });
 
       // Small timeout to allow provider change to propagate if needed, 
       // though synchronous patchValue should work if logic is correct
-      const recommendedModel = prompt.settings?.recommended_model;
+      const recommendedModel = prompt.settings?.['recommended_model'];
       if (recommendedModel) {
         setTimeout(() => {
           this.conversationForm.patchValue({ model: recommendedModel });
@@ -343,11 +343,19 @@ export class NewConversationModal implements OnInit, OnDestroy {
   // Collections Management
   // ============================================================================
 
-  isCollectionSelected(collectionId: string): boolean {
+  // Use collection name as identifier for unregistered collections (id is null)
+  getCollectionIdentifier(collection: QdrantCollection): string {
+    return collection.id || collection.name;
+  }
+
+  isCollectionSelected(collectionId: string | null): boolean {
+    if (!collectionId) return false;
     return this.selectedCollections.includes(collectionId);
   }
 
-  toggleCollection(collectionId: string): void {
+  toggleCollection(collectionId: string | null): void {
+    if (!collectionId) return;
+
     const index = this.selectedCollections.indexOf(collectionId);
 
     if (index > -1) {
@@ -358,7 +366,10 @@ export class NewConversationModal implements OnInit, OnDestroy {
   }
 
   getSelectedCollections(): QdrantCollection[] {
-    return this.collections.filter(c => this.selectedCollections.includes(c.id));
+    return this.collections.filter(c => {
+      const identifier = this.getCollectionIdentifier(c);
+      return this.selectedCollections.includes(identifier);
+    });
   }
   onOverlayClick(event: MouseEvent): void {
     // Solo cierra si el click fue específicamente en el overlay, no en sus hijos

@@ -114,6 +114,10 @@
         <i class="icon-tool"></i>
         <span>Custom Tools</span>
       </button>
+      <button class="btn-secondary btn-full" (click)="openFilesCollections()">
+        <i class="icon-layers"></i>
+        <span>Colecciones</span>
+      </button>
     </div>
   </aside>
 
@@ -125,6 +129,10 @@
       (openConversation)="selectConversation($event)"
       (createNewConversation)="openNewConversationModalForProject(activeProject)">
     </app-project-details>
+
+    <!-- Files Collections View -->
+    <app-files-collections *ngIf="showFilesCollections">
+    </app-files-collections>
 
     <!-- Chat Header -->
     <header class="chat-header" *ngIf="activeConversation && !activeProject">
@@ -153,12 +161,12 @@
     </header>
 
     <!-- Welcome Screen -->
-    <div class="welcome-screen" *ngIf="!activeConversation && !activeProject">
+    <div class="welcome-screen" *ngIf="!activeConversation && !activeProject && !showFilesCollections">
       <div class="welcome-content">
         <div class="welcome-icon">
           <i class="icon-bot"></i>
         </div>
-        <h1>Bienvenido a RAG Chatbot</h1>
+        <h1>Bienvenido a Gestor de IA Multimodal</h1>
         <p>Sistema avanzado de chat con RAG, análisis de código y control de alucinaciones</p>
 
         <div class="quick-actions">
@@ -208,7 +216,7 @@
       <app-chat-input [isLoading]="isLoading" [currentProjectId]="activeConversation.project_id || null"
         [currentConversationId]="activeConversation.id || null" [uploadedFileIds]="uploadedFileIds"
         [hasTemporaryCollection]="hasTemporaryCollection" (onSendMessage)="handleSentMessage($event)"
-        (onCancelChat)="cancelCurrentChat()" (onFileUploadStart)="handleFileUploadStart()"
+        (onCancelChat)="cancelCurrentChat()" (onFileUploadStart)="handleFileUploadStart($event)"
         (onHasTemporaryCollectionChange)="handleHasTemporaryCollectionChange($event)"
         (onUploadedFileIdsChange)="handleUploadedFileIdsChange($event)">
       </app-chat-input>
@@ -262,10 +270,15 @@
           <i class="icon-key"></i>
           API Keys
         </button>
-        <button class="tab-btn" [class.active]="currentSettingsTab === 'preferences'"
+         <button class="tab-btn" [class.active]="currentSettingsTab === 'preferences'"
           (click)="switchSettingsTab('preferences')">
           <i class="icon-sliders"></i>
           Preferencias
+        </button>
+        <button class="tab-btn" [class.active]="currentSettingsTab === 'integrations'"
+          (click)="switchSettingsTab('integrations')">
+          <i class="icon-git-branch"></i>
+          Integraciones
         </button>
       </div>
 
@@ -317,6 +330,60 @@
           </div>
           <p class="help-text"><em>Nota: Esta funcionalidad será implementada
               próximamente.</em></p>
+        </div>
+
+        <!-- Integrations Tab -->
+        <div *ngIf="currentSettingsTab === 'integrations'" class="integrations-tab">
+          <h3>Integraciones de Servicios Externos</h3>
+          <p class="help-text">Vincula tus cuentas externas para ampliar las capacidades del chatbot.</p>
+
+          <div class="integrations-list">
+            <!-- Bitbucket Card -->
+            <div class="integration-card">
+              <div class="integration-header">
+                <div class="integration-info">
+                  <div class="integration-logo">
+                    <i class="icon-git-branch"></i>
+                  </div>
+                  <div>
+                    <h4>Bitbucket</h4>
+                    <p class="integration-description">Permite al chatbot analizar repositorios de Bitbucket, listar ramas y resolver credenciales por usuario.</p>
+                  </div>
+                </div>
+                <div class="integration-badge" [class.connected]="bitbucketStatus?.authorized" [class.checking]="bitbucketChecking">
+                  <span *ngIf="bitbucketChecking" class="loader-inline"></span>
+                  <span *ngIf="!bitbucketChecking">{{ bitbucketStatus?.authorized ? 'Conectado' : 'No Conectado' }}</span>
+                </div>
+              </div>
+
+              <div class="integration-body">
+                <div class="connection-details" *ngIf="bitbucketStatus?.authorized">
+                  <div class="detail-row">
+                    <span class="detail-label">Usuario Local:</span>
+                    <span class="detail-value">default@example.com</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Proveedor:</span>
+                    <span class="detail-value">bitbucket.org</span>
+                  </div>
+                </div>
+                <p class="connection-status-text" *ngIf="!bitbucketStatus?.authorized">
+                  Conéctate con tu cuenta de Bitbucket para habilitar comandos de git y navegación de repositorios privados.
+                </p>
+              </div>
+
+              <div class="integration-actions">
+                <button *ngIf="!bitbucketStatus?.authorized" class="btn-primary" (click)="connectBitbucket()" [disabled]="bitbucketChecking">
+                  <i class="icon-link"></i>
+                  Conectar Cuenta
+                </button>
+                <button *ngIf="bitbucketStatus?.authorized" class="btn-danger" (click)="disconnectBitbucket()" [disabled]="bitbucketChecking">
+                  <i class="icon-trash"></i>
+                  Desconectar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

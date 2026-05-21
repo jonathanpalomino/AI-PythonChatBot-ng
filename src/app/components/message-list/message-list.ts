@@ -4,6 +4,7 @@ import { Message } from '../../models/models';
 import { FileIconPipe } from '../../pipes/file-icon.pipe';
 import { Subject } from 'rxjs';
 import hljs from 'highlight.js';
+import { marked } from 'marked';
 
 @Component({
     selector: 'app-message-list',
@@ -24,6 +25,34 @@ export class MessageListComponent implements AfterViewChecked, OnDestroy {
     private destroy$ = new Subject<void>();
     private userAtBottom = true;
     private lastScrollHeight = 0;
+
+    constructor() {
+        const renderer = new marked.Renderer();
+        renderer.code = function(token: any) {
+            const text = typeof token === 'string' ? arguments[0] : token.text;
+            const lang = typeof token === 'string' ? arguments[1] : token.lang;
+            const langClass = lang || 'text';
+            
+            const escapedCode = text.replace(/[<>&]/g, (m: string) => {
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return '&amp;';
+            });
+
+            return `
+        <div class="code-block-container">
+          <div class="code-block-header">
+            <span class="code-lang">${langClass}</span>
+          </div>
+          <pre><code class="language-${langClass}">${escapedCode}</code></pre>
+        </div>`;
+        };
+        marked.use({
+            renderer,
+            breaks: true,
+            gfm: true
+        });
+    }
 
     ngAfterViewChecked(): void {
         if (this.messagesContainer) {
@@ -93,51 +122,12 @@ export class MessageListComponent implements AfterViewChecked, OnDestroy {
     // Formatting logic (consolidated from app.ts)
     formatMessage(content: string | undefined): string {
         if (!content) return '';
-
-        // 1) Extract code blocks first (on raw content) to avoid double escaping
-        const fences: { lang: string, code: string }[] = [];
-        let placeholderHtml = content.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-            const id = fences.length;
-            fences.push({ lang: lang || 'text', code: code.trim() });
-            return `__FENCE_${id}__`;
-        });
-
-        // 2) Escape the remaining text part
-        let html = this.escapePreservingEntities(placeholderHtml);
-
-        // 3) Basic Markdown-like formatting (inline)
-        html = this.applyInline(html);
-
-        // 4) Restore code blocks with highlight.js structure
-        fences.forEach((f, i) => {
-            const codeHtml = this.escapePreservingEntities(f.code);
-            const replacement = `
-        <div class="code-block-container">
-          <div class="code-block-header">
-            <span class="code-lang">${f.lang}</span>
-          </div>
-          <pre><code class="language-${f.lang}">${codeHtml}</code></pre>
-        </div>`;
-            html = html.replace(`__FENCE_${i}__`, replacement);
-        });
-
-        return html;
-    }
-
-    private escapePreservingEntities(s: string): string {
-        return s.replace(/[<>&]/g, (m) => {
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return '&amp;';
-        });
-    }
-
-    private applyInline(s: string): string {
-        return s
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            .replace(/\n/g, '<br>');
+        try {
+            return marked.parse(content) as string;
+        } catch (e) {
+            console.error('Error parsing markdown:', e);
+            return content;
+        }
     }
 
     private highlightCodeBlocks(): void {

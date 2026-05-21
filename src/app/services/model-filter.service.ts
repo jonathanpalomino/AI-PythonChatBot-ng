@@ -38,7 +38,7 @@ export class ModelFilterService {
         const settings = template.settings;
 
         // If the template uses tools, filter by function calling
-        if (settings?.default_tools && settings.default_tools.length > 0) {
+        if (settings?.['default_tools'] && settings['default_tools'].length > 0) {
             return this.getToolCapableModels(allModels);
         }
 

@@ -30,5 +30,10 @@ export const SUPPORTED_PROVIDERS = [
         id: 'groq',
         name: 'Groq',
         icon: '⚡'
+    },
+    {
+        id: 'web_emulator',
+        name: 'IA Web Emulator',
+        icon: '🌐'
     }
 ] as const;

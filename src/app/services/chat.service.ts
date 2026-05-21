@@ -204,13 +204,13 @@ export class ChatService extends BaseService {
   loadMessages(conversationId: string): void {
     this.apiService.getMessages(conversationId).subscribe({
       next: (messages) => {
-        // Procesar mensajes para mover thinking_content a metadata si es necesario
+        // Procesar mensajes para mover thinking_content a extra_metadata si es necesario
         const processedMessages = messages.map(message => {
-          if (message.thinking_content && !message.metadata?.thinking_content) {
+          if (message.thinking_content && !message.extra_metadata?.thinking_content) {
             return {
               ...message,
-              metadata: {
-                ...message.metadata,
+              extra_metadata: {
+                ...message.extra_metadata,
                 thinking_content: message.thinking_content
               }
             };
@@ -240,7 +240,7 @@ export class ChatService extends BaseService {
     messages.forEach(msg => {
       if (msg.attachments && msg.attachments.length > 0) {
         msg.attachments.forEach(att => {
-          if (!att.file_name) {
+          if (!att['file_name']) {
             const fileId = (att as any).file_id || (att as any).id;
             if (fileId) {
               fileIdsToFetch.add(fileId);
@@ -294,7 +294,7 @@ export class ChatService extends BaseService {
    * Enviar un mensaje y obtener respuesta
    * Usa modo streaming o síncrono según la configuración de la conversación
    */
-  sendMessage(message: string, fileIds: string[] = [], fileInfo: Array<{ name: string, size: number, type: string }> = []): Observable<void> {
+  sendMessage(message: string, fileIds: string[] = [], fileInfo: Array<{ name: string, size: number, type: string }> = [], collectionName?: string): Observable<void> {
     const conversation = this.activeConversationSubject.value;
 
     if (!conversation) {
@@ -306,7 +306,8 @@ export class ChatService extends BaseService {
 
     const request: ChatRequest = {
       message,
-      file_ids: fileIds
+      file_ids: fileIds,
+      collection_name: collectionName
     };
 
     // Agregar mensaje del usuario optimísticamente
@@ -338,7 +339,7 @@ export class ChatService extends BaseService {
     const useStreaming = conversation.settings.stream_chat === true;
 
     if (useStreaming) {
-      return this.handleStreamingMessage(conversation.id, message, fileIds, userMessage);
+      return this.handleStreamingMessage(conversation.id, request, userMessage);
     } else {
       return this.handleSynchronousMessage(conversation.id, request, userMessage);
     }
@@ -360,10 +361,10 @@ export class ChatService extends BaseService {
           // Actualizar timestamp al momento de recepción de la respuesta
           response.message.created_at = new Date().toISOString();
 
-          // Si el backend devuelve thinking_content al mismo nivel que content, moverlo a metadata
-          if (response.thinking_content && !response.message.metadata?.thinking_content) {
-            response.message.metadata = {
-              ...response.message.metadata,
+          // Si el backend devuelve thinking_content al mismo nivel que content, moverlo a extra_metadata
+          if (response.thinking_content && !response.message.extra_metadata?.thinking_content) {
+            response.message.extra_metadata = {
+              ...response.message.extra_metadata,
               thinking_content: response.thinking_content
             };
           }
@@ -395,8 +396,7 @@ export class ChatService extends BaseService {
    */
   private handleStreamingMessage(
     conversationId: string,
-    message: string,
-    fileIds: string[],
+    request: ChatRequest,
     userMessage: Message
   ): Observable<void> {
     return new Observable(observer => {
@@ -410,14 +410,14 @@ export class ChatService extends BaseService {
         role: 'assistant',
         content: '',
         created_at: new Date().toISOString(),
-        metadata: { thinking_content: '' }  // NEW: Initialize thinking content
+        extra_metadata: { thinking_content: '' }  // NEW: Initialize thinking content
       };
       // Agregar mensaje vacío del asistente
       const messages = this.messagesSubject.value;
       this.messagesSubject.next([...messages, assistantMessage]);
 
       // Iniciar streaming
-      this.apiService.streamChat(conversationId, message, fileIds, this.currentStreamAbortController.signal).then(stream => {
+      this.apiService.streamChat(conversationId, request, this.currentStreamAbortController.signal).then(stream => {
         const reader = stream.getReader();
         const processStream = async () => {
           try {
@@ -455,7 +455,7 @@ export class ChatService extends BaseService {
 
                   if (parsed.type === 'thinking') {
                     // Accumulate thinking content
-                    assistantMessage.metadata!.thinking_content += parsed.content;
+                    assistantMessage.extra_metadata!.thinking_content += parsed.content;
                   } else if (parsed.type === 'content') {
                     // Regular content
                     // Interpretar el chunk como un salto de línea si es " \""
@@ -553,6 +553,7 @@ export class ChatService extends BaseService {
 
     // Call the API to cancel the chat
     return this.apiService.cancelChat(conversationId).pipe(
+      map(() => void 0),
       tap(() => {
         // Clean up temporary messages
         const currentMessages = this.messagesSubject.value;

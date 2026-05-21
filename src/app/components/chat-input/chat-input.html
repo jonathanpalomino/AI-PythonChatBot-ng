@@ -1,46 +1,48 @@
 <!-- src/app/components/chat-input/chat-input.html -->
 <div class="chat-input">
-    <!-- File Upload Area -->
-    <div class="file-upload-area" *ngIf="uploadedFiles.length > 0">
-        <div class="uploaded-file" *ngFor="let file of uploadedFiles" [class.uploading]="file.isUploading"
-            [class.error]="file.uploadError">
-            <i class="icon-file"></i>
-            <span>{{ file.name }}</span>
-            <span class="file-size">{{ (file.size / 1024).toFixed(1) }} KB</span>
+    <div class="chat-input-body">
+        <!-- File Upload Area -->
+        <div class="file-upload-area" *ngIf="uploadedFiles.length > 0">
+            <div class="uploaded-file" *ngFor="let file of uploadedFiles" [class.uploading]="file.isUploading"
+                [class.error]="file.uploadError">
+                <i class="icon-file"></i>
+                <span>{{ file.name }}</span>
+                <span class="file-size">{{ (file.size / 1024).toFixed(1) }} KB</span>
 
-            <!-- Progress bar -->
-            <div class="upload-progress" *ngIf="file.isUploading || file.uploadError">
-                <div class="progress-fill" [style.width.%]="file.uploadProgress || 0"></div>
+                <!-- Progress bar -->
+                <div class="upload-progress" *ngIf="file.isUploading || file.uploadError">
+                    <div class="progress-fill" [style.width.%]="file.uploadProgress || 0"></div>
+                </div>
+
+                <button class="btn-icon-tiny" (click)="removeFile(file)" *ngIf="!file.isUploading">
+                    <i class="icon-x"></i>
+                </button>
             </div>
-
-            <button class="btn-icon-tiny" (click)="removeFile(file)" *ngIf="!file.isUploading">
-                <i class="icon-x"></i>
-            </button>
         </div>
-    </div>
 
-    <!-- Input Container -->
-    <div class="input-container">
-        <button class="btn-icon" (click)="fileInput.click()" title="Adjuntar archivo">
-            <i class="icon-paperclip"></i>
-        </button>
+        <!-- Input Container -->
+        <div class="input-container">
+            <button class="btn-attach btn-icon" (click)="fileInput.click()" title="Adjuntar archivo">
+                <i class="icon-paperclip"></i>
+            </button>
 
-        <textarea [(ngModel)]="messageText" (keydown)="onEnterPress($event)"
-            placeholder="Escribe tu mensaje... (Enter para enviar, Shift+Enter para nueva línea)" rows="1"
-            #messageInput>
-    </textarea>
+            <textarea [(ngModel)]="messageText" (keydown)="onEnterPress($event)"
+                placeholder="Escribe un mensaje..." rows="1"
+                #messageInput>
+        </textarea>
 
-        <button class="btn-icon btn-send" *ngIf="!isLoading"
-            [disabled]="(!messageText.trim() && uploadedFileIds.length === 0) || hasUploadingFiles"
-            (click)="sendMessage()" title="Enviar mensaje">
-            <i class="icon-send"></i>
-        </button>
+            <button class="btn-send" *ngIf="!isLoading"
+                [disabled]="(!messageText.trim() && uploadedFileIds.length === 0) || hasUploadingFiles"
+                (click)="sendMessage()" title="Enviar mensaje">
+                <i class="icon-send"></i>
+            </button>
 
-        <button class="btn-icon btn-cancel" *ngIf="isLoading" (click)="cancelChat()" title="Detener ejecución">
-            <i class="icon-stop"></i>
-        </button>
+            <button class="btn-cancel" *ngIf="isLoading" (click)="cancelChat()" title="Detener ejecución">
+                <i class="icon-stop"></i>
+            </button>
 
-        <input #fileInput type="file" hidden multiple (change)="onFileSelected($event)"
-            accept=".pdf,.docx,.doc,.txt,.md,.js,.ts,.py,.java,.sql,.pptx">
+            <input #fileInput type="file" hidden multiple (change)="onFileSelected($event)"
+                accept=".pdf,.docx,.doc,.txt,.md,.js,.ts,.py,.java,.sql,.pptx">
+        </div>
     </div>
 </div>

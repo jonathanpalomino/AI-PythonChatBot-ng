@@ -1,87 +1,157 @@
 // src/styles.scss
 // =============================================================================
-// CSS Variables - Light Theme
+// CSS Variables - Light Theme (Claude-inspired)
 // =============================================================================
 
 :root,
 [data-theme="light"] {
-  --primary-color: #6366f1;
-  --primary-hover: #5856eb;
-  --primary-light: rgba(99, 102, 241, 0.08);
-  --primary-lighter: rgba(99, 102, 241, 0.04);
-  --primary-darker: #4f46e5;
+  // Brand / Accent
+  --primary-color: #d97706;        // Warm amber — Claude's accent
+  --primary-hover: #b45309;
+  --primary-light: rgba(217, 119, 6, 0.10);
+  --primary-lighter: rgba(217, 119, 6, 0.05);
+  --primary-darker: #92400e;
 
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --error-dark: #dc2626;
-  --warning-color: #f59e0b;
-  --info-color: #3b82f6;
+  // Semantic
+  --success-color: #16a34a;
+  --error-color: #dc2626;
+  --error-dark: #b91c1c;
+  --warning-color: #d97706;
+  --info-color: #2563eb;
+  --error-light: rgba(220, 38, 38, 0.08);
 
+  // Accents (purple, for badges)
+  --accent-primary: #7c3aed;
+  --accent-light: rgba(124, 58, 237, 0.08);
+  --accent-primary-alpha: rgba(124, 58, 237, 0.25);
+
+  // Backgrounds — very clean, warm whites
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-hover: #e2e8f0;
+  --bg-secondary: #fafaf9;
+  --bg-tertiary: #f5f5f4;
+  --bg-hover: #e7e5e4;
 
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
+  // Text
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-tertiary: #a8a29e;
 
-  --border-color: #e2e8f0;
-  --border-hover: #cbd5e1;
+  // Borders
+  --border-color: #e7e5e4;
+  --border-hover: #d6d3d1;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  // Shadows
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.14);
+  --shadow-input: 0 0 0 2px rgba(217, 119, 6, 0.20);
 
+  // Spacing
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 0.75rem;
   --spacing-lg: 1rem;
   --spacing-xl: 1.25rem;
 
+  // Radius
   --radius-sm: 0.375rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.625rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 
-  --transition-fast: 0.12s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  // Transitions
+  --transition-fast: 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Chat specifics
+  --chat-max-width: 768px;
+  --sidebar-width: 260px;
+  --sidebar-bg: #fafaf9;
+  --user-msg-bg: #1c1917;
+  --user-msg-text: #fafaf8;
+  --assistant-msg-bg: transparent;
+  --input-bg: #ffffff;
+  --input-border: #d6d3d1;
 }
 
 // =============================================================================
-// CSS Variables - Dark Theme
+// CSS Variables - Dark Theme (ChatGPT-inspired)
 // =============================================================================
 
 [data-theme="dark"] {
-  --primary-color: #6366f1;
-  --primary-hover: #5856eb;
-  --primary-light: rgba(99, 102, 241, 0.08);
-  --primary-lighter: rgba(99, 102, 241, 0.04);
+  // Brand / Accent
+  --primary-color: #10a37f;        // ChatGPT green
+  --primary-hover: #0d8c6d;
+  --primary-light: rgba(16, 163, 127, 0.12);
+  --primary-lighter: rgba(16, 163, 127, 0.06);
+  --primary-darker: #0a7a60;
 
+  // Semantic
   --success-color: #34d399;
   --error-color: #f87171;
   --error-dark: #ef4444;
   --warning-color: #fbbf24;
   --info-color: #60a5fa;
+  --error-light: rgba(248, 113, 113, 0.10);
 
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-hover: #475569;
+  // Accents
+  --accent-primary: #a78bfa;
+  --accent-light: rgba(167, 139, 250, 0.10);
+  --accent-primary-alpha: rgba(167, 139, 250, 0.25);
 
-  --text-primary: #e5e7eb;
-  --text-secondary: #cbd5e1;
-  --text-tertiary: #94a3b8;
+  // Backgrounds — ChatGPT's exact palette
+  --bg-primary: #212121;
+  --bg-secondary: #2f2f2f;
+  --bg-tertiary: #3d3d3d;
+  --bg-hover: #404040;
 
-  --border-color: #334155;
-  --border-hover: #475569;
+  // Text
+  --text-primary: #ececec;
+  --text-secondary: #b4b4b4;
+  --text-tertiary: #8e8ea0;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+  // Borders
+  --border-color: #3d3d3d;
+  --border-hover: #565656;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.6);
+  --shadow-input: 0 0 0 2px rgba(16, 163, 127, 0.30);
+
+  // Spacing
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.25rem;
+
+  // Radius
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  // Transitions
+  --transition-fast: 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Chat specifics
+  --chat-max-width: 768px;
+  --sidebar-width: 260px;
+  --sidebar-bg: #171717;
+  --user-msg-bg: #2f2f2f;
+  --user-msg-text: #ececec;
+  --assistant-msg-bg: transparent;
+  --input-bg: #2f2f2f;
+  --input-border: #3d3d3d;
 }
 
 // =============================================================================
@@ -101,15 +171,17 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--text-primary);
   background: var(--bg-primary);
   transition: background-color var(--transition-normal),
     color var(--transition-normal);
-  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
 }
 
 // =============================================================================
@@ -183,20 +255,20 @@ button {
 .btn-primary {
   background: var(--primary-color);
   color: white;
-  padding: 0.65rem 1.5rem;
+  padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
   font-weight: 500;
   font-size: 0.875rem;
+  letter-spacing: -0.01em;
   transition: all var(--transition-normal);
 
   &:hover:not(:disabled) {
     background: var(--primary-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
   }
 
   &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: scale(0.98);
   }
 }
 
@@ -218,16 +290,16 @@ button {
 
 .btn-icon {
   background: transparent;
-  color: var(--text-secondary);
-  padding: 0.5rem;
+  color: var(--text-tertiary);
+  padding: 6px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-normal);
+  transition: all var(--transition-fast);
 
   &:hover:not(:disabled) {
-    background: var(--bg-tertiary);
+    background: var(--bg-hover);
     color: var(--text-primary);
   }
 }
@@ -906,6 +978,248 @@ button {
 [data-theme="light"] .code-block-container code {
   color: #1f1f1f;
 }
+
+// =============================================================================
+// Custom Tools Manager — Integration Card & Loader (OAuth Bitbucket)
+// Global so always applies regardless of Angular component encapsulation
+// =============================================================================
+
+.integration-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-sm);
+  }
+
+  // Modificador para tarjeta OAuth compacta del formulario git_tool
+  &.oauth-compact {
+    padding: 10px 14px;
+    gap: 0;
+
+    .integration-header {
+      flex-direction: row;
+      align-items: center;
+      padding: 0;
+      gap: 12px;
+
+      .integration-info {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+
+        h4 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          margin: 0;
+          white-space: nowrap;
+        }
+
+        .integration-description {
+          display: none;
+        }
+      }
+
+      .integration-badge {
+        flex-shrink: 0;
+      }
+    }
+
+    .connection-details {
+      padding: 0;
+      margin-top: 8px;
+      display: flex;
+      gap: 16px;
+
+      .detail-row {
+        padding: 0;
+        font-size: 0.75rem;
+      }
+    }
+
+    .integration-actions {
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+  }
+}
+
+.integration-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.integration-info {
+  display: flex;
+  gap: 16px;
+
+  .integration-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+  }
+
+  h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .integration-description {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    max-width: 520px;
+  }
+}
+
+.integration-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+
+  &.connected {
+    background: rgba(34, 197, 94, 0.1);
+    color: rgb(34, 197, 94);
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+
+  &.checking {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+}
+
+.integration-body {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+
+  .connection-status-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+}
+
+.connection-details {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+
+  .detail-label {
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  .detail-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-family: var(--font-mono, monospace);
+  }
+}
+
+.integration-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+
+  .btn-primary,
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition-fast);
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+
+    &:hover:not(:disabled) {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.05);
+      border-color: #ef4444;
+    }
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+}
+
+.loader-inline {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 
 [data-theme="light"] .code-block-container pre::-webkit-scrollbar-thumb {
   background: #d4d4d4;

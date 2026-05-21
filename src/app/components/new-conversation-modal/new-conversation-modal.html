@@ -183,9 +183,9 @@
                         <label>Colecciones RAG (Opcional)</label>
                         <div class="collections-list">
                             <label *ngFor="let collection of collections" class="collection-item"
-                                [class.selected]="isCollectionSelected(collection.id)">
-                                <input type="checkbox" [checked]="isCollectionSelected(collection.id)"
-                                    (change)="toggleCollection(collection.id)">
+                                [class.selected]="isCollectionSelected(getCollectionIdentifier(collection))">
+                                <input type="checkbox" [checked]="isCollectionSelected(getCollectionIdentifier(collection))"
+                                    (change)="toggleCollection(getCollectionIdentifier(collection))">
                                 <div class="collection-info">
                                     <span class="collection-name">{{ collection.display_name }}</span>
                                     <span class="collection-desc">{{ collection.description }}</span>

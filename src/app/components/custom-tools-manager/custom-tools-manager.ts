@@ -1,10 +1,11 @@
 // src/app/components/custom-tools-manager/custom-tools-manager.ts
-import { Component, inject, signal, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ViewEncapsulation } from '@angular/core';
+import { CommonModule, JsonPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { CustomTool, CustomToolParameter, CustomToolCreate, CustomToolUpdate } from '../../models/models';
-import { KeyValueFormComponent, KeyValueItem } from '../key-value-form/key-value-form';
+
+const SESSION_KEY = 'ctm_oauth_pending_form';
 
 interface ToolType {
     name: string;
@@ -21,11 +22,12 @@ interface SchemaField {
 @Component({
     selector: 'app-custom-tools-manager',
     standalone: true,
-    imports: [CommonModule, FormsModule, KeyValueFormComponent],
+    encapsulation: ViewEncapsulation.None,
+    imports: [CommonModule, FormsModule, JsonPipe, TitleCasePipe],
     templateUrl: './custom-tools-manager.html',
     styleUrls: ['./custom-tools-manager.scss']
 })
-export class CustomToolsManager {
+export class CustomToolsManager implements OnInit {
     private apiService = inject(ApiService);
 
     // State
@@ -35,25 +37,167 @@ export class CustomToolsManager {
 
     // Tool types
     toolTypes = signal<Record<string, ToolType>>({});
-    selectedToolType = signal<string>('http');
+    selectedToolType = signal<string>('http_request');
 
     // Form state for creating/editing tools
     showForm = signal<boolean>(false);
     currentTool = signal<Partial<CustomTool> | null>(null);
+    activeTab = signal<string>('general');
 
     // Form fields
     formData = signal<Partial<CustomTool>>({
         name: '',
         description: '',
-        tool_type: 'http',
+        tool_type: 'http_request' as any,
         configuration: {
             url: '',
             method: 'POST',
             headers: {},
             parameters: []
         },
+        intent_examples: [],
+        content_prompt: '',
         is_active: true
     });
+
+    // New intent example form
+    newIntentExample = signal<string>('');
+
+    // Available actions for multi-intent tools
+    availableActions = signal<Array<{name: string, description: string, default_params: any}>>([]);
+
+    // ── OAuth / Provider integration (for git_tool) ──────────────────────────
+    /** Git provider currently selected in the form (bitbucket | github | gitlab) */
+    selectedProvider = signal<string>('bitbucket');
+
+    /** Whether the selected provider's OAuth is connected for the current user */
+    providerConnected = signal<boolean>(false);
+
+    /** True while we are checking the OAuth status */
+    providerChecking = signal<boolean>(false);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Computed properties
+    supportsMultiIntent() {
+        const toolType = this.formData().tool_type;
+        // Tools that support multiple actions/intents
+        return toolType === 'git_tool' as any || toolType === 'codebase_tool' as any;
+    }
+
+    hasIntentActions() {
+        const config = this.formData().configuration;
+        return config && typeof config === 'object' && 'intent_actions' in config;
+    }
+
+    getIntentActions() {
+        const config = this.formData().configuration;
+        if (this.hasIntentActions() && config && typeof config === 'object') {
+            return config['intent_actions'] as Record<string, {examples: string[], default_params: any}>;
+        }
+        return {};
+    }
+
+    // Multi-intent editing
+    selectedAction = signal<string>('');
+    newActionExample = signal<string>('');
+
+    // Load available actions when tool type changes
+    async loadAvailableActions() {
+        const toolType = this.formData().tool_type as string;
+        console.log('loadAvailableActions called with tool_type:', toolType);
+
+        if (!this.supportsMultiIntent()) {
+            console.log('Tool does not support multi-intent, clearing available actions');
+            this.availableActions.set([]);
+            return;
+        }
+
+        try {
+            console.log('Fetching tool details for:', toolType);
+            const toolDetails = await this.apiService.getToolDetails(toolType).toPromise();
+            console.log('Tool details received:', toolDetails);
+            this.availableActions.set(toolDetails.available_actions || []);
+            console.log('Available actions set:', this.availableActions());
+        } catch (error) {
+            console.error('Error loading available actions:', error);
+            this.availableActions.set([]);
+        }
+    }
+
+    selectAndEnableAction(actionName: string) {
+        const config = this.formData().configuration || {};
+        if (!config['intent_actions']) {
+            config['intent_actions'] = {};
+        }
+
+        // If action is not enabled, enable it
+        if (!config['intent_actions'][actionName]) {
+            const availableAction = this.availableActions().find(a => a.name === actionName);
+            config['intent_actions'][actionName] = {
+                examples: [],
+                default_params: availableAction?.default_params || {}
+            };
+        }
+
+        // Toggle selection
+        if (this.selectedAction() === actionName) {
+            this.selectedAction.set('');
+        } else {
+            this.selectedAction.set(actionName);
+        }
+
+        this.formData.set({...this.formData(), configuration: config});
+    }
+
+    isActionEnabled(actionName: string): boolean {
+        const config = this.formData().configuration;
+        return config && config['intent_actions'] && config['intent_actions'][actionName];
+    }
+
+    hasConfiguredActions(): boolean {
+        return Object.keys(this.getIntentActions()).length > 0;
+    }
+
+    addActionExample() {
+        const action = this.selectedAction();
+        const example = this.newActionExample().trim();
+        if (!action || !example) return;
+
+        const config = this.formData().configuration || {};
+        if (config['intent_actions'] && config['intent_actions'][action]) {
+            config['intent_actions'][action].examples.push(example);
+            this.formData.set({...this.formData(), configuration: config});
+            this.newActionExample.set(''); // Clear input after adding
+        }
+    }
+
+    removeActionExample(actionName: string, exampleIndex: number) {
+        const config = this.formData().configuration || {};
+        if (config['intent_actions'] && config['intent_actions'][actionName]) {
+            config['intent_actions'][actionName].examples.splice(exampleIndex, 1);
+            this.formData.set({...this.formData(), configuration: config});
+        }
+    }
+
+    updateActionParams(actionName: string, paramsJson: string) {
+        const config = this.formData().configuration || {};
+        if (config['intent_actions'] && config['intent_actions'][actionName]) {
+            try {
+                config['intent_actions'][actionName].default_params = JSON.parse(paramsJson) || {};
+            } catch {
+                config['intent_actions'][actionName].default_params = {};
+            }
+            this.formData.set({...this.formData(), configuration: config});
+        }
+    }
+
+    parseJson(jsonString: string): any {
+        try {
+            return JSON.parse(jsonString);
+        } catch {
+            return {};
+        }
+    }
 
     // New parameter form
     newParameter = signal<Partial<CustomToolParameter>>({
@@ -68,6 +212,10 @@ export class CustomToolsManager {
     // New header form
     newHeaderKey = signal<string>('');
     newHeaderValue = signal<string>('');
+
+    // New key-value pair form for object fields (params, headers, etc.) - using Record to track per field
+    newKeyValueKey = signal<Record<string, string>>({});
+    newKeyValueValue = signal<Record<string, string>>({});
 
     // Dynamic array management
     newArrayItemObject = signal<Record<string, any>>({});
@@ -85,16 +233,132 @@ export class CustomToolsManager {
         this.loadToolTypes();
     }
 
+    ngOnInit(): void {
+        // Check if we are returning from an OAuth redirect
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('oauth_success')) {
+            // Clean URL so it doesn't fire again on refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+            this.restoreFormFromSession();
+        } else if (urlParams.has('oauth_error')) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            this.error.set('No se pudo conectar la cuenta. Inténtalo de nuevo.');
+        }
+    }
+
+    // ── OAuth Provider helpers ────────────────────────────────────────────────
+
+    /** Called when the provider dropdown changes inside the git_tool configuration */
+    async onProviderChange(): Promise<void> {
+        await this.checkProviderStatus();
+    }
+
+    /** Checks whether the currently-selected provider has a valid OAuth token */
+    async checkProviderStatus(): Promise<void> {
+        const provider = this.selectedProvider();
+        if (provider !== 'bitbucket') {
+            // For GitHub/GitLab we don't have OAuth yet — mark as disconnected
+            this.providerConnected.set(false);
+            return;
+        }
+        this.providerChecking.set(true);
+        try {
+            const status = await this.apiService.getBitbucketStatus().toPromise();
+            this.providerConnected.set(status?.authorized ?? false);
+        } catch {
+            this.providerConnected.set(false);
+        } finally {
+            this.providerChecking.set(false);
+        }
+    }
+
+    /**
+     * Keep `configuration.provider` in sync with the custom select dropdown.
+     * Called from the (ngModelChange) of the provider dropdown.
+     */
+    syncProviderToConfig(provider: string): void {
+        const config = { ...this.formData().configuration, provider };
+        this.formData.set({ ...this.formData(), configuration: config });
+    }
+
+    /**
+     * Saves form state to sessionStorage, then redirects to the OAuth authorize URL.
+     * On return, ngOnInit restores the state via restoreFormFromSession().
+     */
+    connectProvider(): void {
+        const provider = this.selectedProvider();
+        if (provider !== 'bitbucket') {
+            alert(`La integración OAuth con ${provider} aún no está disponible.`);
+            return;
+        }
+        // Persist current form state before leaving the page
+        const snapshot = {
+            formData: this.formData(),
+            selectedToolType: this.selectedToolType(),
+            selectedProvider: this.selectedProvider(),
+            showForm: true,
+            activeTab: this.activeTab()
+        };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(snapshot));
+        // Navigate to OAuth flow
+        const authUrl = this.apiService.getBitbucketAuthorizeUrl();
+        window.location.href = authUrl;
+    }
+
+    /** Restores the form from sessionStorage after OAuth redirect returns */
+    private restoreFormFromSession(): void {
+        const raw = sessionStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(SESSION_KEY);
+        try {
+            const snapshot = JSON.parse(raw);
+            this.selectedToolType.set(snapshot.selectedToolType || 'git_tool');
+            this.selectedProvider.set(snapshot.selectedProvider || 'bitbucket');
+            this.activeTab.set(snapshot.activeTab || 'config');
+            // Restore form data and auto-fill name/description if empty
+            const restored = snapshot.formData || {};
+            this.formData.set({
+                ...restored,
+                name: restored.name || this.buildDefaultName(snapshot.selectedProvider),
+                description: restored.description || this.buildDefaultDescription(snapshot.selectedProvider)
+            });
+            this.showForm.set(true);
+            // Now check the status — we should be connected
+            this.checkProviderStatus();
+        } catch (e) {
+            console.error('Failed to restore form from session:', e);
+        }
+    }
+
+    private buildDefaultName(provider: string): string {
+        const names: Record<string, string> = {
+            bitbucket: 'Bitbucket',
+            github: 'GitHub',
+            gitlab: 'GitLab'
+        };
+        return names[provider] || 'Git Tool';
+    }
+
+    private buildDefaultDescription(provider: string): string {
+        const descs: Record<string, string> = {
+            bitbucket: 'Herramienta de integración con Bitbucket para listar repositorios, analizar ramas y detectar conflictos.',
+            github: 'Herramienta de integración con GitHub para listar repositorios y analizar cambios en ramas.',
+            gitlab: 'Herramienta de integración con GitLab para listar proyectos y analizar cambios en ramas.'
+        };
+        return descs[provider] || 'Herramienta Git integrada.';
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Initialize with default tool types
     initializeDefaultToolTypes(): void {
         const defaultTypes: Record<string, ToolType> = {
-            'http': {
+            'http_request': {
                 name: 'HTTP Request',
                 description: 'Make HTTP requests to external APIs',
                 config_schema: {},
                 example: {}
             },
-            'sql': {
+            'sql_query': {
                 name: 'SQL Query',
                 description: 'Execute SQL queries against databases',
                 config_schema: {},
@@ -179,14 +443,19 @@ export class CustomToolsManager {
     }
 
     // Show create form
-    showCreateForm(): void {
+    async showCreateForm(): Promise<void> {
+        console.log('showCreateForm called');
         this.currentTool.set(null);
+        this.activeTab.set('general');
         this.updateFormForToolType();
+        console.log('After updateFormForToolType, tool_type:', this.formData().tool_type);
+        await this.loadAvailableActions();
+        console.log('After loadAvailableActions, available actions:', this.availableActions());
         this.showForm.set(true);
     }
 
     // Handle tool type change
-    onToolTypeChange(): void {
+    async onToolTypeChange(): Promise<void> {
         console.log('Tool type changed to:', this.selectedToolType());
 
         // Clear cache when tool type changes
@@ -196,16 +465,22 @@ export class CustomToolsManager {
         // If we're creating a new tool, update the form
         if (!this.currentTool()) {
             this.updateFormForToolType();
+            await this.loadAvailableActions();
         } else {
-            // If we're editing an existing tool, we might want to ask for confirmation
-            // before changing the tool type, as it could affect the configuration
             if (confirm('Changing the tool type may affect the existing configuration. Do you want to continue?')) {
                 this.updateFormForToolType();
-            } else {
-                // Revert the tool type selection
-                this.selectedToolType.set(this.currentTool()?.tool_type || 'http');
+                await this.loadAvailableActions();
             }
         }
+
+     // For git_tool: reset provider and check OAuth status
+     if (this.selectedToolType() === 'git_tool') {
+        this.selectedProvider.set('bitbucket');
+        await this.checkProviderStatus();
+     } else {
+        this.selectedProvider.set('github');
+        this.providerConnected.set(false);
+     }
     }
 
     // Update form data based on the selected tool type
@@ -230,8 +505,10 @@ export class CustomToolsManager {
             ...currentForm,
             name: isEditing ? currentForm.name : '',
             description: isEditing ? currentForm.description : '',
-            tool_type: toolType,
+            tool_type: toolType as any,
             configuration: { ...example.configuration },
+            intent_examples: isEditing ? currentForm.intent_examples : [],
+            content_prompt: isEditing ? currentForm.content_prompt : '',
             is_active: isEditing ? currentForm.is_active : true
         });
 
@@ -267,6 +544,8 @@ export class CustomToolsManager {
 
         if (schema && schema.properties) {
             for (const key of Object.keys(schema.properties)) {
+                // Hide the dynamic `provider` field for git_tool — we use our own selector above
+                if (this.selectedToolType() === 'git_tool' && key === 'provider') continue;
                 fields.push({
                     key: key,
                     value: schema.properties[key]
@@ -448,9 +727,11 @@ export class CustomToolsManager {
     }
 
     // Show edit form
-    showEditForm(tool: CustomTool): void {
+    async showEditForm(tool: CustomTool): Promise<void> {
+        console.log('showEditForm called for tool:', tool.name);
         this.currentTool.set(tool);
         this.selectedToolType.set(tool.tool_type);
+        this.activeTab.set('general');
         const config = tool.configuration || {};
 
         this.formData.set({
@@ -458,10 +739,46 @@ export class CustomToolsManager {
             description: tool.description,
             tool_type: tool.tool_type,
             configuration: { ...config },
+            intent_examples: [...(tool.intent_examples || [])],
+            content_prompt: tool.content_prompt || '',
             is_active: tool.is_active
         });
 
+        console.log('Form data set, tool_type:', this.formData().tool_type);
+        await this.loadAvailableActions();
+        console.log('Available actions loaded:', this.availableActions());
+
+        // Sync OAuth provider status so the inline card reflects reality on edit
+        if (this.selectedToolType() === 'git_tool') {
+            // Sync selectedProvider from the stored configuration so the badge shows the right state
+            const stored = this.formData().configuration?.['provider'] as string | undefined;
+            if (stored) this.selectedProvider.set(stored);
+            await this.checkProviderStatus();
+        }
+
         this.showForm.set(true);
+    }
+
+    // Intent examples management
+    addIntentExample(): void {
+        const example = this.newIntentExample().trim();
+        if (!example) return;
+
+        const currentForm = this.formData();
+        const examples = [...(currentForm.intent_examples || []), example];
+        this.formData.set({ ...currentForm, intent_examples: examples });
+        this.newIntentExample.set('');
+    }
+
+    removeIntentExample(index: number): void {
+        const currentForm = this.formData();
+        const examples = [...(currentForm.intent_examples || [])];
+        examples.splice(index, 1);
+        this.formData.set({ ...currentForm, intent_examples: examples });
+    }
+
+    setActiveTab(tab: string): void {
+        this.activeTab.set(tab);
     }
 
     // Add new parameter to form
@@ -474,7 +791,7 @@ export class CustomToolsManager {
             return;
         }
 
-        const newParams = [...(currentForm.configuration?.parameters || []), {
+        const newParams = [...(currentForm.configuration?.['parameters'] || []), {
             name: param.name,
             type: param.type || 'string',
             description: param.description || '',
@@ -500,7 +817,7 @@ export class CustomToolsManager {
     // Remove parameter from form
     removeParameter(index: number): void {
         const currentForm = this.formData();
-        const newParams = [...(currentForm.configuration?.parameters || [])];
+        const newParams = [...(currentForm.configuration?.['parameters'] || [])];
         newParams.splice(index, 1);
         const newConfig = { ...(currentForm.configuration || {}), parameters: newParams };
         this.formData.set({ ...currentForm, configuration: newConfig });
@@ -514,7 +831,7 @@ export class CustomToolsManager {
         }
 
         const currentForm = this.formData();
-        const newHeaders = { ...(currentForm.configuration?.headers || {}), [key]: value };
+        const newHeaders = { ...(currentForm.configuration?.['headers'] || {}), [key]: value };
         const newConfig = { ...(currentForm.configuration || {}), headers: newHeaders };
         this.formData.set({ ...currentForm, configuration: newConfig });
     }
@@ -522,10 +839,88 @@ export class CustomToolsManager {
     // Remove header from form
     removeHeader(key: string): void {
         const currentForm = this.formData();
-        const newHeaders = { ...(currentForm.configuration?.headers || {}) };
+        const newHeaders = { ...(currentForm.configuration?.['headers'] || {}) };
         delete newHeaders[key];
         const newConfig = { ...(currentForm.configuration || {}), headers: newHeaders };
         this.formData.set({ ...currentForm, configuration: newConfig });
+    }
+
+    // Key-value pair management for object fields (params, headers, etc.)
+    addKeyValuePair(field: string): void {
+        const keys = this.newKeyValueKey();
+        const values = this.newKeyValueValue();
+        const key = keys[field] || '';
+        const value = values[field] || '';
+
+        if (!key) {
+            this.error.set('Key is required');
+            return;
+        }
+
+        const currentForm = this.formData();
+        const currentObj = { ...(currentForm.configuration?.[field] || {}) };
+        currentObj[key] = value;
+
+        const newConfig = { ...(currentForm.configuration || {}), [field]: currentObj };
+        this.formData.set({ ...currentForm, configuration: newConfig });
+
+        // Reset form for this field only
+        const updatedKeys = { ...keys, [field]: '' };
+        const updatedValues = { ...values, [field]: '' };
+        this.newKeyValueKey.set(updatedKeys);
+        this.newKeyValueValue.set(updatedValues);
+    }
+
+    removeKeyValuePair(field: string, key: string): void {
+        const currentForm = this.formData();
+        const currentObj = { ...(currentForm.configuration?.[field] || {}) };
+        delete currentObj[key];
+
+        const newConfig = { ...(currentForm.configuration || {}), [field]: currentObj };
+        this.formData.set({ ...currentForm, configuration: newConfig });
+    }
+
+    editKeyValuePair(field: string, key: string, value: any): void {
+        // Populate inputs with current values
+        this.updateNewKey(field, key);
+        this.updateNewValue(field, value);
+        
+        // Remove current entry so it can be "updated" on add
+        this.removeKeyValuePair(field, key);
+    }
+
+    // Update key-value input for specific field
+    updateNewKey(field: string, value: string): void {
+        const current = this.newKeyValueKey();
+        this.newKeyValueKey.set({ ...current, [field]: value });
+    }
+
+    updateNewValue(field: string, value: string): void {
+        const current = this.newKeyValueValue();
+        this.newKeyValueValue.set({ ...current, [field]: value });
+    }
+
+    // Get current new key for field
+    getNewKey(field: string): string {
+        return this.newKeyValueKey()[field] || '';
+    }
+
+    // Get current new value for field
+    getNewValue(field: string): string {
+        return this.newKeyValueValue()[field] || '';
+    }
+
+    // Get object entries as array for display
+    getObjectEntries(fieldKey: string): [string, any][] {
+        const obj = this.getFieldValue(fieldKey);
+        return obj ? Object.entries(obj) : [];
+    }
+
+    // Check if field should use key-value editor
+    isKeyValueField(fieldKey: string): boolean {
+        // Fields that should use key-value editor
+        const keyValueFields = ['params', 'headers'];
+        return keyValueFields.includes(fieldKey);
     }
 
     // Save tool (create or update)
@@ -575,8 +970,10 @@ export class CustomToolsManager {
                 const updateData: CustomToolUpdate = {
                     name: toolData.name,
                     description: toolData.description,
-                    tool_type: toolType,
+                    tool_type: toolType as any,
                     configuration: configuration,
+                    intent_examples: toolData.intent_examples,
+                    content_prompt: toolData.content_prompt,
                     is_active: toolData.is_active
                 };
                 await this.apiService.updateCustomTool(this.currentTool()!.id as string, updateData).toPromise();
@@ -585,8 +982,10 @@ export class CustomToolsManager {
                 const createData: CustomToolCreate = {
                     name: toolData.name!,
                     description: toolData.description,
-                    tool_type: toolType,
+                    tool_type: toolType as any,
                     configuration: configuration,
+                    intent_examples: toolData.intent_examples,
+                    content_prompt: toolData.content_prompt,
                     is_active: toolData.is_active
                 };
                 await this.apiService.createCustomTool(createData).toPromise();
@@ -661,7 +1060,7 @@ export class CustomToolsManager {
     // Helper to check if the current tool type supports parameters and headers
     isHttpOrCustomToolType(): boolean {
         const toolType = this.selectedToolType();
-        return toolType === 'http' || toolType === 'custom';
+        return toolType === 'http_request' || toolType === 'custom';
     }
 
     // Helper to update configuration fields
@@ -690,60 +1089,5 @@ export class CustomToolsManager {
                 [propertyKey]: value
             }
         });
-    }
-
-    // Helper methods for params conversion (key-value format)
-    getParamsAsKeyValueItems(): KeyValueItem[] {
-        const params = this.getFieldValue('parameters') || [];
-        return params.map((param: any) => ({
-            key: param.name || '',
-            value: param.description || ''
-        }));
-    }
-
-    updateParamsFromKeyValueItems(items: KeyValueItem[]): void {
-        const params = items.map(item => ({
-            name: item.key,
-            type: 'string', // Default type for params
-            description: item.value,
-            required: false,
-            enum: [],
-            default: ''
-        }));
-        this.updateDynamicConfig('parameters', params);
-    }
-
-    // Helper methods for object params conversion (key-value format)
-    getObjectParamsAsKeyValueItems(): KeyValueItem[] {
-        const params = this.getFieldValue('params') || {};
-        return Object.entries(params).map(([key, value]) => ({
-            key: key,
-            value: String(value || '')
-        }));
-    }
-
-    updateObjectParamsFromKeyValueItems(items: KeyValueItem[]): void {
-        const params = items.reduce((acc, item) => {
-            acc[item.key] = item.value;
-            return acc;
-        }, {} as Record<string, string>);
-        this.updateDynamicConfig('params', params);
-    }
-
-    // Helper to check if field is params (should use key-value form)
-    isParamsField(fieldKey: string): boolean {
-        const lowerKey = fieldKey.toLowerCase();
-        return lowerKey === 'parameters' || lowerKey === 'params' ||
-            lowerKey.includes('param') || lowerKey.includes('query');
-    }
-
-    // Helper to check if field should use key-value form (for both array and object types)
-    shouldUseKeyValueForm(fieldKey: string, fieldType: string): boolean {
-        const isParams = this.isParamsField(fieldKey);
-        const isArray = fieldType === 'array';
-        const isObject = fieldType === 'object';
-
-        // Use key-value form for params fields that are arrays or objects
-        return isParams && (isArray || isObject);
     }
 }

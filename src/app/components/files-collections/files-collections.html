@@ -1,0 +1,194 @@
+<div class="collections-container">
+  <!-- Sidebar: Collections List -->
+  <aside class="collections-sidebar">
+    <div class="sidebar-header">
+      <h2>Colecciones Qdrant</h2>
+      <button class="btn-primary btn-sm" (click)="openCreateModal()">
+        <span class="icon-plus"></span> Nueva
+      </button>
+    </div>
+
+    <div class="collections-list">
+      <div 
+        *ngFor="let col of collections" 
+        class="collection-item" 
+        [class.active]="(selectedCollection?.id || selectedCollection?.name) === (col.id || col.name)"
+        (click)="selectCollection(col)"
+      >
+        <div class="col-info">
+          <span class="col-name">{{ col.display_name }}</span>
+          <span class="col-meta">{{ col.vector_count || 0 }} vectores</span>
+        </div>
+        <button class="btn-icon-small btn-delete" (click)="deleteCollection(col); $event.stopPropagation()">
+          <i class="icon-trash"></i>
+        </button>
+      </div>
+
+      <div *ngIf="collections.length === 0 && !isLoading" class="empty-state">
+        <p>No hay colecciones creadas.</p>
+      </div>
+
+      <div *ngIf="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Cargando...</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content: Collection Details & Ingestion -->
+  <main class="collection-details" *ngIf="selectedCollection; else noSelection">
+    <header class="detail-header">
+      <div class="title-area">
+        <h1>{{ selectedCollection.display_name }}</h1>
+        <span class="badge">{{ selectedCollection.name }}</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="label">Vectores</span>
+          <span class="value">{{ selectedCollection.vector_count || 0 }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Visibilidad</span>
+          <span class="value">{{ selectedCollection.visibility }}</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="ingest-section">
+      <div class="section-tabs">
+        <button [class.active]="ingestMode === 'folder'" (click)="ingestMode = 'folder'">
+          <i class="icon-folder"></i> Ingestar Carpeta Local
+        </button>
+        <button [class.active]="ingestMode === 'upload'" (click)="ingestMode = 'upload'">
+          <i class="icon-upload"></i> Subir Archivos
+        </button>
+      </div>
+
+      <div class="ingest-panels">
+        <!-- Common Config -->
+        <div class="config-row">
+          <label>Modelo de Embedding</label>
+          <select [(ngModel)]="selectedEmbeddingModel">
+            <option *ngFor="let model of embeddingModels" [value]="model.id || model.name">
+              {{ model.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Folder Ingest Panel -->
+        <div *ngIf="ingestMode === 'folder'" class="panel folder-panel">
+          <div class="form-group">
+            <label>Ruta de la Carpeta (Absoluta)</label>
+            <input 
+              type="text" 
+              [(ngModel)]="folderPath" 
+              placeholder="e.g. C:\Documentos\Proyectos"
+            >
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="recursive" [(ngModel)]="recursive">
+            <label for="recursive">Escanear recursivamente</label>
+          </div>
+          <button 
+            class="btn-primary btn-lg" 
+            (click)="ingestFolder()" 
+            [disabled]="isIngesting || !folderPath"
+          >
+            {{ isIngesting ? 'Procesando...' : 'Iniciar Ingesta' }}
+          </button>
+        </div>
+
+        <!-- Upload Ingest Panel -->
+        <div *ngIf="ingestMode === 'upload'" class="panel upload-panel">
+          <div 
+            class="drop-zone" 
+            [class.dragging]="isDragging"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+            (click)="fileInput.click()"
+          >
+            <i class="icon-upload-cloud"></i>
+            <p>Arrastra archivos aquí o haz clic para seleccionar</p>
+            <input #fileInput type="file" multiple (change)="onFileSelected($event)" hidden>
+          </div>
+
+          <div class="selected-files" *ngIf="selectedFiles.length > 0">
+            <h3>Archivos seleccionados ({{ selectedFiles.length }})</h3>
+            <ul>
+              <li *ngFor="let file of selectedFiles; let i = index">
+                <span>{{ file.name }} ({{ (file.size / 1024) | number:'1.0-1' }} KB)</span>
+                <button (click)="removeFile(i)">&times;</button>
+              </li>
+            </ul>
+            <button 
+              class="btn-primary btn-lg" 
+              (click)="ingestUpload()" 
+              [disabled]="isIngesting || selectedFiles.length === 0"
+            >
+              {{ isIngesting ? 'Subiendo...' : 'Subir e Ingestar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ingestion Results -->
+      <div class="ingestion-results" *ngIf="ingestionStats">
+        <h3>Resultado de la Ingesta</h3>
+        <div class="stats-summary">
+          <div class="res-item"><span>Total:</span> <strong>{{ ingestionStats.total_found }}</strong></div>
+          <div class="res-item"><span>Agregados:</span> <strong class="text-success">{{ ingestionStats.added }}</strong></div>
+          <div class="res-item"><span>Actualizados:</span> <strong class="text-info">{{ ingestionStats.updated }}</strong></div>
+          <div class="res-item"><span>Errores:</span> <strong class="text-danger">{{ ingestionStats.errors }}</strong></div>
+        </div>
+        
+        <div class="error-details" *ngIf="ingestionStats.errors > 0">
+          <details>
+            <summary>Ver Detalles de Errores</summary>
+            <ul>
+              <li *ngFor="let err of ingestionStats.error_details">
+                <code>{{ err.file }}:</code> {{ err.error }}
+              </li>
+            </ul>
+          </details>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <ng-template #noSelection>
+    <div class="no-selection">
+      <i class="icon-layers"></i>
+      <h3>Selecciona una colección para gestionar</h3>
+      <p>O crea una nueva para empezar a indexar documentos.</p>
+    </div>
+  </ng-template>
+
+  <!-- Create Collection Modal -->
+  <div class="modal-overlay" *ngIf="showCreateModal" (click)="showCreateModal = false">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Nueva Colección</h2>
+        <button class="btn-icon" (click)="showCreateModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nombre Técnico (IDs Qdrant, sin espacios)</label>
+          <input type="text" [(ngModel)]="newCollection.name" placeholder="mi-coleccion-v1">
+        </div>
+        <div class="form-group">
+          <label>Nombre a Mostrar</label>
+          <input type="text" [(ngModel)]="newCollection.display_name" placeholder="Mi Nueva Colección">
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea [(ngModel)]="newCollection.description"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showCreateModal = false">Cancelar</button>
+        <button class="btn-primary" [disabled]="!newCollection.name || !newCollection.display_name" (click)="createCollection()">Crear</button>
+      </div>
+    </div>
+  </div>
+</div>

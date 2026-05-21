@@ -3,66 +3,68 @@
     <div class="message" *ngFor="let message of messages; trackBy: trackByMessageId"
         [class]="'message-' + message.role">
 
-        <div class="message-avatar">
-            <i [class]="getAvatarIcon(message.role)"></i>
-        </div>
-
-        <div class="message-content">
-            <div class="message-header">
-                <span class="message-role">{{ message.role | titlecase }}</span>
-                <span class="message-time">{{ message.created_at | date:'M/d/yy, HH:mm:ss' }}</span>
+        <div class="message-inner">
+            <div class="message-avatar">
+                <i [class]="getAvatarIcon(message.role)"></i>
             </div>
 
-            <div class="message-text" [innerHTML]="formatMessage(message.content)"></div>
+            <div class="message-content">
+                <div class="message-header" *ngIf="message.role !== 'user'">
+                    <span class="message-role">{{ message.role | titlecase }}</span>
+                    <span class="message-time">{{ message.created_at | date:'HH:mm' }}</span>
+                </div>
 
-            <!-- Thinking Content (Collapsible) -->
-            <div class="message-thinking" *ngIf="message.metadata?.thinking_content">
-                <button class="thinking-toggle" (click)="toggleThinking(message.id)">
-                    <i [class]="isThinkingExpanded(message.id) ? 'icon-chevron-down' : 'icon-chevron-right'"></i>
-                    <span>Ver razonamiento del modelo</span>
-                    <span class="thinking-badge">{{ getThinkingWordCount(message.metadata?.thinking_content ?? '') }}
-                        palabras</span>
-                </button>
-                <div class="thinking-content" *ngIf="isThinkingExpanded(message.id)">
-                    <div class="thinking-inner" [innerHTML]="formatMessage(message.metadata?.thinking_content ?? '')">
+                <div class="message-text" [innerHTML]="formatMessage(message.content)"></div>
+
+                <!-- Thinking Content (Collapsible) -->
+                <div class="message-thinking" *ngIf="message.extra_metadata?.thinking_content">
+                    <button class="thinking-toggle" (click)="toggleThinking(message.id)">
+                        <i [class]="isThinkingExpanded(message.id) ? 'icon-chevron-down' : 'icon-chevron-right'"></i>
+                        <span>Ver razonamiento del modelo</span>
+                        <span class="thinking-badge">{{ getThinkingWordCount(message.extra_metadata?.thinking_content ?? '') }}
+                            palabras</span>
+                    </button>
+                    <div class="thinking-content" *ngIf="isThinkingExpanded(message.id)">
+                        <div class="thinking-inner" [innerHTML]="formatMessage(message.extra_metadata?.thinking_content ?? '')">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Attachments Display -->
-            <div class="message-attachments" *ngIf="message.attachments?.length">
-                <div class="attachment-item" *ngFor="let file of message.attachments">
-                    <div class="attachment-icon">
-                        <i [class]="file.file_name | fileIcon"></i>
+                <!-- Attachments Display -->
+                <div class="message-attachments" *ngIf="message.attachments?.length">
+                    <div class="attachment-item" *ngFor="let file of message.attachments">
+                        <div class="attachment-icon">
+                            <i [class]="file['file_name'] | fileIcon"></i>
+                        </div>
+                        <div class="attachment-info">
+                            <span class="attachment-name">{{ file['file_name'] }}</span>
+                            <span class="attachment-size">{{ (file['file_size'] / 1024).toFixed(1) }} KB</span>
+                        </div>
                     </div>
-                    <div class="attachment-info">
-                        <span class="attachment-name">{{ file.file_name }}</span>
-                        <span class="attachment-size">{{ (file.file_size / 1024).toFixed(1) }} KB</span>
+                </div>
+
+                <!-- Message Metadata -->
+                <div class="message-metadata" *ngIf="message.extra_metadata">
+                    <div class="metadata-item" *ngIf="message.extra_metadata.tools_used && message.extra_metadata.tools_used.length">
+                        <i class="icon-tool"></i>
+                        <span>Tools: {{ message.extra_metadata.tools_used.join(', ') }}</span>
+                    </div>
+                    <div class="metadata-item" *ngIf="message.extra_metadata.confidence_score">
+                        <i class="icon-check-circle"></i>
+                        <span>Confidence: {{ (message.extra_metadata.confidence_score * 100).toFixed(0) }}%</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Message Metadata -->
-            <div class="message-metadata" *ngIf="message.metadata">
-                <div class="metadata-item" *ngIf="message.metadata.tools_used && message.metadata.tools_used.length">
-                    <i class="icon-tool"></i>
-                    <span>Tools: {{ message.metadata.tools_used.join(', ') }}</span>
-                </div>
-                <div class="metadata-item" *ngIf="message.metadata.confidence_score">
-                    <i class="icon-check-circle"></i>
-                    <span>Confidence: {{ (message.metadata.confidence_score * 100).toFixed(0) }}%</span>
-                </div>
-            </div>
-
-            <!-- Sources -->
-            <div class="message-sources" *ngIf="message.metadata?.rag_sources?.length">
-                <div class="sources-header">
-                    <i class="icon-book"></i>
-                    <span>Fuentes ({{ message.metadata?.rag_sources?.length ?? 0 }})</span>
-                </div>
-                <div class="source-item" *ngFor="let source of message.metadata?.rag_sources ?? []">
-                    <span class="source-file">{{ source.file }}</span>
-                    <span class="source-score">{{ (source.score * 100).toFixed(0) }}%</span>
+                <!-- Sources -->
+                <div class="message-sources" *ngIf="message.extra_metadata?.rag_sources?.length">
+                    <div class="sources-header">
+                        <i class="icon-book"></i>
+                        <span>Fuentes ({{ message.extra_metadata?.rag_sources?.length ?? 0 }})</span>
+                    </div>
+                    <div class="source-item" *ngFor="let source of message.extra_metadata?.rag_sources ?? []">
+                        <span class="source-file">{{ source.file }}</span>
+                        <span class="source-score">{{ (source.score * 100).toFixed(0) }}%</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,14 +72,16 @@
 
     <!-- Loading Indicator -->
     <div class="message message-assistant" *ngIf="isLoading">
-        <div class="message-avatar">
-            <i class="icon-bot"></i>
-        </div>
-        <div class="message-content">
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+        <div class="message-inner">
+            <div class="message-avatar">
+                <i class="icon-bot"></i>
+            </div>
+            <div class="message-content">
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
             </div>
         </div>
     </div>
@@ -87,4 +91,5 @@
         <i class="icon-message"></i>
         <p>Inicia la conversación enviando un mensaje</p>
     </div>
+
 </div>

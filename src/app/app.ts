@@ -22,7 +22,8 @@ import {
   ConversationCreate,
   PromptTemplate,
   QdrantCollection,
-  Project
+  Project,
+  OAuthStatus
 } from './models/models';
 import { CustomToolsManager } from './components/custom-tools-manager/custom-tools-manager';
 import { MessageListComponent } from './components/message-list/message-list';
@@ -30,6 +31,7 @@ import { ChatInputComponent } from './components/chat-input/chat-input';
 import { ToolsBarComponent } from './components/tools-bar/tools-bar';
 import hljs from 'highlight.js';
 import { FileIconPipe } from './pipes/file-icon.pipe';
+import { FilesCollectionsComponent } from './components/files-collections/files-collections';
 
 // Agregar esta interfaz al inicio del archivo app.ts (después de los imports)
 interface UploadingFile extends File {
@@ -52,7 +54,8 @@ interface UploadingFile extends File {
     CustomToolsManager,
     MessageListComponent,
     ChatInputComponent,
-    ToolsBarComponent
+    ToolsBarComponent,
+    FilesCollectionsComponent
   ],
   templateUrl: './app.html',
   styleUrls: ['./app.scss']
@@ -84,11 +87,16 @@ export class App implements OnInit, OnDestroy {
   showFileManager = false;
   showSettings = false;
   showProjectFormModal = false;
+  showFilesCollections = false;
   projectToEdit: Project | undefined = undefined;
 
   // Navigation
   activeSidebarTab: 'conversations' | 'projects' = 'conversations';
-  currentSettingsTab: 'prompts' | 'api' | 'preferences' = 'prompts';
+  currentSettingsTab: 'prompts' | 'api' | 'preferences' | 'integrations' = 'prompts';
+
+  // OAuth Bitbucket
+  bitbucketStatus: OAuthStatus | null = null;
+  bitbucketChecking = false;
 
   // Resources
   prompts: PromptTemplate[] = [];
@@ -129,6 +137,7 @@ export class App implements OnInit, OnDestroy {
     this.initializeSubscriptions();
     this.loadInitialData();
     this.initializeTheme();
+    this.checkOAuthCallback();
   }
 
   ngAfterViewChecked(): void {
@@ -306,6 +315,7 @@ export class App implements OnInit, OnDestroy {
 
   selectConversation(id: string): void {
     this.activeProject = null; // Cierra la vista de proyecto
+    this.showFilesCollections = false; // Cierra la vista de colecciones
     this.chatService.setActiveConversation(id);
 
     // Ensure we switch back to conversation view if needed
@@ -340,6 +350,7 @@ export class App implements OnInit, OnDestroy {
   selectProject(project: Project): void {
     this.activeProject = project;
     this.activeConversation = null; // Clear chat view
+    this.showFilesCollections = false;
     // Switch to projects tab if not already (for example if opened from header)
     this.activeSidebarTab = 'projects';
   }
@@ -380,6 +391,13 @@ export class App implements OnInit, OnDestroy {
           error: (err) => this.handleError('Error eliminando proyecto', err)
         });
     }
+  }
+
+  openFilesCollections(): void {
+    this.showFilesCollections = true;
+    this.activeConversation = null;
+    this.activeProject = null;
+    this.sidebarCollapsed = false;
   }
 
   // ============================================================================
@@ -441,8 +459,10 @@ export class App implements OnInit, OnDestroy {
       },
       project_id: settings.projectId || undefined,
       prompt_template_id: settings.promptTemplateId || undefined,
-      metadata: {
-        selected_collections: settings.selectedCollections || []
+      extra_metadata: {
+        selected_collections: settings.selectedCollections || [],
+        tool_warnings: settings.toolWarnings,
+        rag_config: settings.ragConfig
       }
     };
 
@@ -500,6 +520,8 @@ export class App implements OnInit, OnDestroy {
   }
 
   private enableRagForProject(data: ConversationCreate): void {
+    if (!data.settings) data.settings = {};
+    if (!data.settings.enabled_tools) data.settings.enabled_tools = [];
     if (!data.settings.enabled_tools.includes('rag_search')) {
       data.settings.enabled_tools.push('rag_search');
     }
@@ -524,19 +546,29 @@ export class App implements OnInit, OnDestroy {
     }
     const quickSettings = {
       title: prompt?.name || `Nueva Conversación ${type}`,
-      provider: prompt?.settings?.recommended_provider || 'local',
-      model: prompt?.settings?.recommended_model || recommended_model,
-      temperature: prompt?.settings?.temperature || 0.7,
-      maxTokens: prompt?.settings?.max_tokens || 4000,
+      provider: prompt?.settings?.['recommended_provider'] || 'local',
+      model: prompt?.settings?.['recommended_model'] || recommended_model,
+      temperature: prompt?.settings?.['temperature'] || 0.7,
+      maxTokens: prompt?.settings?.['max_tokens'],
       toolMode: 'manual',
-      enabledTools: prompt?.settings?.default_tools || [],
-      hallucinationMode: prompt?.settings?.hallucination_mode || 'balanced',
+      enabledTools: prompt?.settings?.['default_tools'] || [],
+      hallucinationMode: prompt?.settings?.['hallucination_mode'] || 'balanced',
       requireSources: false,
       confidenceThreshold: 0.7,
       promptTemplateId: prompt?.id
     };
 
     this.createConversation(quickSettings);
+  }
+
+  // ============================================================================
+  // UI Helpers
+  // ============================================================================
+
+  handleCollectionSelect(collectionId: string | null): void {
+    this.selectedCollectionId = collectionId;
+    console.log('[AppComponent] Selected collection:', collectionId);
+    this.updateActiveConversationSettings({ rag_collection_id: collectionId || undefined });
   }
 
   // ============================================================================
@@ -560,7 +592,17 @@ export class App implements OnInit, OnDestroy {
     }
 
     this.isLoading = true;
-    this.chatService.sendMessage(this.messageText, this.uploadedFileIds, fileInfo).subscribe({
+
+    // Find collection name from ID if selected
+    let collectionName: string | undefined = undefined;
+    if (this.selectedCollectionId && !this.hasTemporaryCollection) {
+      const collection = this.collections.find(c => (c.id || c.name) === this.selectedCollectionId);
+      if (collection) {
+        collectionName = collection.name;
+      }
+    }
+
+    this.chatService.sendMessage(this.messageText, this.uploadedFileIds, fileInfo, collectionName).subscribe({
       next: () => {
         this.messageText = '';
         this.uploadedFileIds = [];
@@ -584,14 +626,17 @@ export class App implements OnInit, OnDestroy {
       }
     });
   }
-  // ============================================================================
-  // File Handling
-  // ============================================================================
 
-  handleFileUploadStart(): void {
-    // Auto-activar RAG cuando se suben archivos
+  handleFileUploadStart(files: FileList): void {
+    // Siempre activar RAG (o la instancia custom configurada) cuando se suben archivos
     if (!this.isToolActive('rag_search')) {
       this.toggleTool('rag_search');
+    }
+
+    // Detectar si hay archivos de código para activar también la herramienta de análisis de código
+    const hasCodeFiles = Array.from(files).some(f => FileUtils.isCodeFile(f.name));
+    if (hasCodeFiles && !this.isToolActive('codebase_tool')) {
+      this.toggleTool('codebase_tool');
     }
   }
 
@@ -671,7 +716,7 @@ export class App implements OnInit, OnDestroy {
     // 3) Extraer fences a placeholders para no alterarlos con los reemplazos inline
     interface Fence { lang: string; code: string; }
     const fences: Fence[] = [];
-    text = text.replace(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g, (_m, langRaw: string, body: string) => {
+    text = text.replace(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)(?:\n```|$)/g, (_m, langRaw: string, body: string) => {
       const lang = (langRaw || '').trim();
       fences.push({ lang, code: body });
       return `@@FENCE_${fences.length - 1}@@`;
@@ -881,10 +926,7 @@ export class App implements OnInit, OnDestroy {
     this.updateActiveConversationSettings({ enabled_tools: updatedTools });
   }
 
-  handleCollectionSelect(id: string | null): void {
-    this.selectedCollectionId = id;
-    this.updateActiveConversationSettings({ rag_collection_id: id || undefined });
-  }
+
 
   handleRegenerate(): void {
     if (!this.activeConversation) return;
@@ -921,6 +963,7 @@ export class App implements OnInit, OnDestroy {
 
   openSettings(): void {
     this.showSettings = true;
+    this.checkBitbucketStatus();
   }
 
   closeSettings(): void {
@@ -935,8 +978,86 @@ export class App implements OnInit, OnDestroy {
     this.showCustomToolsManager = false;
   }
 
-  switchSettingsTab(tab: 'prompts' | 'api' | 'preferences'): void {
+  switchSettingsTab(tab: 'prompts' | 'api' | 'preferences' | 'integrations'): void {
     this.currentSettingsTab = tab;
+    if (tab === 'integrations') {
+      this.checkBitbucketStatus();
+    }
+  }
+
+  // ============================================================================
+  // OAuth Bitbucket Methods
+  // ============================================================================
+
+  checkBitbucketStatus(): void {
+    this.bitbucketChecking = true;
+    this.apiService.getBitbucketStatus()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (status) => {
+          this.bitbucketStatus = status;
+          this.bitbucketChecking = false;
+        },
+        error: (err) => {
+          console.warn('[App] Error al verificar estado de Bitbucket:', err);
+          this.bitbucketChecking = false;
+        }
+      });
+  }
+
+  connectBitbucket(): void {
+    const authUrl = this.apiService.getBitbucketAuthorizeUrl();
+    window.location.href = authUrl;
+  }
+
+  disconnectBitbucket(): void {
+    if (confirm('¿Estás seguro de que deseas desconectar tu cuenta de Bitbucket? Se eliminarán los tokens de acceso.')) {
+      this.bitbucketChecking = true;
+      this.apiService.revokeBitbucket()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            alert('Cuenta de Bitbucket desconectada correctamente.');
+            this.checkBitbucketStatus();
+          },
+          error: (err) => {
+            this.handleError('Error al desconectar Bitbucket', err);
+            this.bitbucketChecking = false;
+          }
+        });
+    }
+  }
+
+  checkOAuthCallback(): void {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('oauth_success')) {
+      const provider = urlParams.get('provider') || 'Bitbucket';
+
+      // If the user started from the Custom Tools form, the component itself handles
+      // the restoration (it reads the URL and sessionStorage in ngOnInit).
+      // We only show a generic toast here when there is NO pending form session.
+      const hasPendingForm = !!sessionStorage.getItem('ctm_oauth_pending_form');
+
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.checkBitbucketStatus();
+
+      if (!hasPendingForm) {
+        // Connected from Integrations tab — just notify and show status
+        alert(`¡Autorización con ${provider} completada con éxito!`);
+        this.showSettings = true;
+        this.currentSettingsTab = 'integrations';
+      } else {
+        // Connected from Custom Tool form — open the Custom Tools Manager
+        // so the component can restore and complete the form
+        this.showCustomToolsManager = true;
+      }
+    } else if (urlParams.has('oauth_error')) {
+      const msg = urlParams.get('message') || 'Error al conectar la cuenta.';
+      alert(`Error de autenticación: ${msg}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.showSettings = true;
+      this.currentSettingsTab = 'integrations';
+    }
   }
 
   openConversationSettings(): void {
@@ -1035,16 +1156,16 @@ export class App implements OnInit, OnDestroy {
       this.toggleTool('rag_search');
     }
 
-    // Actualizar metadata de la conversación con la colección seleccionada
+    // Actualizar extra_metadata de la conversación con la colección seleccionada
     if (this.activeConversation) {
       const updatedMetadata = {
-        ...this.activeConversation.metadata,
+        ...this.activeConversation.extra_metadata,
         selected_collection_id: collectionId
       };
 
       this.apiService.updateConversation(
         this.activeConversation.id,
-        { metadata: updatedMetadata }
+        { extra_metadata: updatedMetadata }
       ).pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (conv) => {
@@ -1056,9 +1177,13 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  getCollectionIdentifier(collection: QdrantCollection): string {
+    return collection.id || collection.name;
+  }
+
   getSelectedCollection(): QdrantCollection | null {
     if (this.selectedCollectionId) {
-      return this.availableCollections.find(c => c.id === this.selectedCollectionId) || null;
+      return this.availableCollections.find(c => this.getCollectionIdentifier(c) === this.selectedCollectionId) || null;
     }
     return null;
   }

@@ -122,7 +122,7 @@ export class PromptFormModal implements OnInit, OnChanges, OnDestroy {
                 recommended_provider: '',
                 recommended_model: '',
                 temperature: 0.7,
-                max_tokens: 2000,
+                max_tokens: undefined,
                 top_p: 1.0,
                 default_tools: []
             },
@@ -139,20 +139,20 @@ export class PromptFormModal implements OnInit, OnChanges, OnDestroy {
                     recommended_provider: '',
                     recommended_model: '',
                     temperature: 0.7,
-                    max_tokens: 2000,
+                    max_tokens: undefined,
                     top_p: 1.0,
                     default_tools: []
                 };
             } else {
                 // Ensure provider fields exist even if settings object exists
-                if (!this.formData.settings.recommended_provider) {
-                    this.formData.settings.recommended_provider = '';
+                if (!this.formData.settings['recommended_provider']) {
+                    this.formData.settings['recommended_provider'] = '';
                 }
-                if (!this.formData.settings.recommended_model) {
-                    this.formData.settings.recommended_model = '';
+                if (!this.formData.settings['recommended_model']) {
+                    this.formData.settings['recommended_model'] = '';
                 }
-                if (!this.formData.settings.default_tools) {
-                    this.formData.settings.default_tools = [];
+                if (!this.formData.settings['default_tools']) {
+                    this.formData.settings['default_tools'] = [];
                 }
             }
         } else {
@@ -174,20 +174,20 @@ export class PromptFormModal implements OnInit, OnChanges, OnDestroy {
     toggleTool(toolName: string): void {
         if (!this.formData.settings) return;
 
-        if (!this.formData.settings.default_tools) {
-            this.formData.settings.default_tools = [];
+        if (!this.formData.settings['default_tools']) {
+            this.formData.settings['default_tools'] = [];
         }
 
-        const index = this.formData.settings.default_tools.indexOf(toolName);
+        const index = this.formData.settings['default_tools'].indexOf(toolName);
         if (index > -1) {
-            this.formData.settings.default_tools.splice(index, 1);
+            this.formData.settings['default_tools'].splice(index, 1);
         } else {
-            this.formData.settings.default_tools.push(toolName);
+            this.formData.settings['default_tools'].push(toolName);
         }
     }
 
     isToolSelected(toolName: string): boolean {
-        return this.formData.settings?.default_tools?.includes(toolName) || false;
+        return this.formData.settings?.['default_tools']?.includes(toolName) || false;
     }
 
     loadCategories(): void {
@@ -233,7 +233,7 @@ export class PromptFormModal implements OnInit, OnChanges, OnDestroy {
     }
 
     getAvailableModels(): string[] {
-        const provider = this.formData.settings?.recommended_provider;
+        const provider = this.formData.settings?.['recommended_provider'];
         const selectedProvider = this.providers.find(p => p.value === provider);
         return selectedProvider?.models || [];
     }

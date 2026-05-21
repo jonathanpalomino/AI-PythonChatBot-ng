@@ -21,7 +21,7 @@ export class ChatInputComponent implements OnChanges {
 
     @Output() onSendMessage = new EventEmitter<{ message: string, fileIds: string[], fileInfo: any[] }>();
     @Output() onCancelChat = new EventEmitter<void>();
-    @Output() onFileUploadStart = new EventEmitter<void>();
+    @Output() onFileUploadStart = new EventEmitter<FileList>();
     @Output() onHasTemporaryCollectionChange = new EventEmitter<boolean>();
     @Output() onUploadedFileIdsChange = new EventEmitter<string[]>();
 
@@ -50,7 +50,7 @@ export class ChatInputComponent implements OnChanges {
         const files: FileList = event.target.files;
         if (!files || files.length === 0) return;
 
-        this.onFileUploadStart.emit();
+        this.onFileUploadStart.emit(files);
 
         Array.from(files).forEach(file => {
             const uploadingFile: UploadingFile = Object.assign(file, {
@@ -79,6 +79,15 @@ export class ChatInputComponent implements OnChanges {
                         uploadingFile.isUploading = false;
                         const response = event.body;
 
+                        // Check if file is still in the list (it might have been cancelled)
+                        if (!this.uploadedFiles.includes(uploadingFile)) {
+                            if (response && response.id) {
+                                // Clean up the orphan file
+                                this.apiService.deleteFile(response.id).subscribe();
+                            }
+                            return;
+                        }
+
                         if (response && response.id) {
                             uploadingFile.id = response.id;
                             this.uploadedFileIds.push(response.id);
@@ -88,9 +97,12 @@ export class ChatInputComponent implements OnChanges {
                 },
                 error: (err) => {
                     console.error('Upload failed:', err);
-                    uploadingFile.isUploading = false;
-                    uploadingFile.uploadError = true;
-                    uploadingFile.uploadProgress = 0;
+                    // Only update if still in list
+                    if (this.uploadedFiles.includes(uploadingFile)) {
+                        uploadingFile.isUploading = false;
+                        uploadingFile.uploadError = true;
+                        uploadingFile.uploadProgress = 0;
+                    }
                 }
             });
         });
@@ -104,24 +116,24 @@ export class ChatInputComponent implements OnChanges {
     removeFile(file: UploadingFile): void {
         const index = this.uploadedFiles.indexOf(file);
         if (index > -1) {
-            const fileId = this.uploadedFileIds[index];
             this.uploadedFiles.splice(index, 1);
 
-            if (fileId) {
-                const idIndex = this.uploadedFileIds.indexOf(fileId);
+            // Use file.id directly if it exists
+            if (file.id) {
+                const idIndex = this.uploadedFileIds.indexOf(file.id);
                 if (idIndex > -1) {
                     this.uploadedFileIds.splice(idIndex, 1);
                     this.onUploadedFileIdsChange.emit([...this.uploadedFileIds]);
                 }
 
                 // Eliminar del servidor
-                this.apiService.deleteFile(fileId).subscribe({
+                this.apiService.deleteFile(file.id).subscribe({
                     error: (err) => console.error('Error deleting file from server:', err)
                 });
             }
 
             // Actualizar estado de colección temporal
-            if (this.uploadedFileIds.length === 0) {
+            if (this.uploadedFileIds.length === 0 && this.uploadedFiles.length === 0) {
                 this.hasTemporaryCollection = false;
                 this.onHasTemporaryCollectionChange.emit(false);
             }
